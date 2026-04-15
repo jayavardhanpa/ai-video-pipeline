@@ -20,7 +20,8 @@ limiter = Limiter(
 
 init_db()
 
-redis_conn = Redis()
+redis_url = os.getenv("REDIS_URL")
+redis_conn = Redis.from_url(redis_url)
 q = Queue(connection=redis_conn)
 
 @app.route("/")

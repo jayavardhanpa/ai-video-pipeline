@@ -1,10 +1,13 @@
 from rq import Worker, Queue
 from redis import Redis
 from utils import logger
+import os
 
 listen = ['default']
 
-redis_conn = Redis()
+
+redis_url = os.getenv("REDIS_URL")
+redis_conn = Redis.from_url(redis_url)
 
 if __name__ == "__main__":
     logger.info("Starting worker...")
