@@ -1,17 +1,20 @@
 from db import update_status
 import time
+from utils import logger
 
 def build_video(video_id):
-    print("Building video...")
-
     update_status(video_id, "building")
 
-    time.sleep(5)  # simulate
+    try:
+        # build video
+        update_status(video_id, "built")
 
-    update_status(video_id, "uploading")
+        # upload
+        update_status(video_id, "uploading")
 
-    time.sleep(3)
+        # simulate upload
+        update_status(video_id, "uploaded")
 
-    update_status(video_id, "uploaded")
-
-    print("Done")
+    except Exception as e:
+        logger.error(f"Error occurred while building video {video_id}: {e}")    
+        update_status(video_id, "failed")
