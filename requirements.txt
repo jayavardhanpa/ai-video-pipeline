@@ -3,3 +3,4 @@ rq
 redis
 requests
 python-dotenv
+flask-limiter
