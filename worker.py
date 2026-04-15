@@ -1,11 +1,12 @@
-from rq import Worker, Queue, Connection
+from rq import Worker, Queue
 from redis import Redis
 from utils import logger
+
+listen = ['default']
 
 redis_conn = Redis()
 
 if __name__ == "__main__":
-    with Connection(redis_conn):
-        logger.info("Worker started, waiting for tasks...")
-        worker = Worker([Queue()])
-        worker.work()
+    logger.info("Starting worker...")
+    worker = Worker([Queue(name, connection=redis_conn) for name in listen])
+    worker.work()
