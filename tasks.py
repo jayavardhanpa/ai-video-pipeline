@@ -4,6 +4,7 @@ import json
 import moviepy
 from gtts import gTTS
 from db import update_status
+from youtube_service import upload_video
 
 # ✅ Import ONLY required modules (no TextClip)
 try:
@@ -94,6 +95,18 @@ def build_video(item):
 
         logger.info(f"✅ Completed video {video_id}")
 
+        # 🚀 Upload videos to YouTube
+        for video_file in videos:
+            try:
+                logger.info(f"📤 Uploading {video_file} to YouTube...")
+
+                upload_video(
+                    video_file,
+                    f"Bhagavad Gita Wisdom | GitaJeevanam"
+                )
+
+            except Exception as e:
+                logger.error(f"YouTube upload failed: {e}")    
         if video_id:
             update_status(video_id, "ready")
 
