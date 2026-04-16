@@ -1,13 +1,15 @@
 import requests
 import os
+from utils import logger
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 def send_approval(video_id, script):
-    print("BOT_TOKEN:", BOT_TOKEN)
-    print("CHAT_ID:", CHAT_ID)
-    print("APP_URL:", os.getenv('APP_URL'))
+    logger.info(f"Sending Telegram approval for video {video_id}...")
+    # print("BOT_TOKEN:", BOT_TOKEN)
+    # print("CHAT_ID:", CHAT_ID)
+    # print("APP_URL:", os.getenv('APP_URL'))
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     text = f"🎬 Script:\n{script[:150]}...\n\nApprove?"
@@ -29,8 +31,9 @@ def send_approval(video_id, script):
             },
             timeout=5   # 🔥 VERY IMPORTANT
         )
-
-        print("Telegram response:", response.text)
+        logger.info(f"Telegram response status: {response.status_code}")
+        # print("Telegram response:", response.text)
 
     except Exception as e:
-        print("Telegram error:", e)
+        logger.error(f"Error sending Telegram message: {e}")
+        # print("Telegram error:", e)

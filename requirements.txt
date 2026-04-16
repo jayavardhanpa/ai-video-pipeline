@@ -4,3 +4,7 @@ redis
 requests
 python-dotenv
 flask-limiter
+openai
+moviepy
+gtts
+

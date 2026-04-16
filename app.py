@@ -1,4 +1,5 @@
 from flask import Flask
+from ai_service import generate_script
 from db import init_db, insert_video, update_status
 from telegram_bot import send_approval
 from utils import require_api_key, logger   
@@ -33,12 +34,17 @@ def home():
 @require_api_key
 def generate():
     try:
-        script = "AI generated script"
+        from ai_service import generate_script
 
-        vid = insert_video(script)
+        script_data = generate_script()
+
+        # Save English as preview for Telegram
+        preview_script = script_data.get("english", "")
+
+        vid = insert_video(str(script_data)) 
 
         # ✅ Move to background
-        q.enqueue(send_approval, vid, script)
+        q.enqueue(send_approval, vid, preview_script)
         logger.info(f"Enqueued Telegram approval for video {vid}")
         return {"status": "ok", "id": vid}
 

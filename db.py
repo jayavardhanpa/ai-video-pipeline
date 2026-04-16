@@ -29,3 +29,23 @@ def update_status(id, status):
     conn.execute("UPDATE videos SET status=? WHERE id=?", (status, id))
     conn.commit()
     conn.close()
+
+def get_video(id):
+    logger.info(f"Fetching video {id} from database...")
+    conn = sqlite3.connect("data.db")
+    cur = conn.cursor()
+
+    cur.execute("SELECT id, script, status FROM videos WHERE id=?", (id,))
+    row = cur.fetchone()
+
+    conn.close()
+
+    if not row:
+        logger.warning(f"Video {id} not found.")
+        return None
+
+    return {
+        "id": row[0],
+        "script": row[1],
+        "status": row[2]
+    }
