@@ -7,4 +7,6 @@ flask-limiter
 openai
 moviepy
 gtts
+imageio
+imageio-ffmpeg
 
