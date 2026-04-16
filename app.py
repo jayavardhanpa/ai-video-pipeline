@@ -30,17 +30,21 @@ def home():
     return "Running 🚀"
 
 @app.route("/api/generate", methods=["POST"])
-@limiter.limit("5 per hour")
 @require_api_key
 def generate():
-    logger.info("Received request to generate video...")
-    script = "This is AI generated script"  # replace with LLM later
+    try:
+        script = "AI generated script"
 
-    vid = insert_video(script)
+        vid = insert_video(script)
 
-    send_approval(vid, script)
+        # ✅ Move to background
+        q.enqueue(send_approval, vid, script)
+        logger.info(f"Enqueued Telegram approval for video {vid}")
+        return {"status": "ok", "id": vid}
 
-    return {"status": "sent for approval"}
+    except Exception as e:
+        logger.error(f"Error in /api/generate: {e}")
+        return {"error": str(e)}, 500
 
 @app.route("/approve/<int:vid>")
 @limiter.limit("10 per minute")
