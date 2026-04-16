@@ -5,7 +5,8 @@ requests
 python-dotenv
 flask-limiter
 openai
-moviepy
+moviepy==1.0.3
+decorator==4.4.2
 gtts
 imageio
 imageio-ffmpeg
