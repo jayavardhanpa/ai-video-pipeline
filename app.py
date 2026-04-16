@@ -87,7 +87,7 @@ def approve(vid):
 
     payload = {
         "id": vid,
-        "scripts": script_data
+        "scripts": video_store.get(vid)
     }
 
     q.enqueue(build_video, payload)
