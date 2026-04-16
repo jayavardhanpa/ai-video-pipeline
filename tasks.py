@@ -4,6 +4,19 @@ from pathlib import Path
 import json
 
 from gtts import gTTS
+from db import update_status
+
+# Check moviepy availability once at import time so the worker doesn't crash
+# on environments where ffmpeg / imageio are not installed.
+try:
+    from moviepy.editor import TextClip, AudioFileClip
+    MOVIEPY_AVAILABLE = True
+except (ImportError, ModuleNotFoundError) as _moviepy_err:
+    MOVIEPY_AVAILABLE = False
+    logger.warning(
+        f"moviepy is not available — video building will be disabled. "
+        f"Reason: {_moviepy_err}"
+    )
 
 OUTPUT_DIR = Path("/tmp/videos")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -22,6 +35,17 @@ def build_video(item):
             logger.error(f"No script data for video {video_id}")
             return
 
+        # Fail gracefully when moviepy / ffmpeg are not installed rather than
+        # crashing the worker process and losing all queued jobs.
+        if not MOVIEPY_AVAILABLE:
+            logger.error(
+                f"Cannot build video {video_id}: moviepy is not installed. "
+                "Install moviepy and ffmpeg to enable video building."
+            )
+            if video_id:
+                update_status(video_id, "error")
+            return None
+
         logger.info(f"Starting build for video {video_id}")
 
         languages = {
@@ -29,10 +53,6 @@ def build_video(item):
             "hindi": "hi",
             "english": "en"
         }
-
-        from pathlib import Path
-        from gtts import gTTS
-        from moviepy.editor import TextClip, AudioFileClip
 
         OUTPUT_DIR = Path("/tmp/videos")
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
