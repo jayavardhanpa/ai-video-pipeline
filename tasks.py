@@ -4,7 +4,6 @@ from pathlib import Path
 import json
 
 from gtts import gTTS
-from moviepy.editor import TextClip, AudioFileClip
 
 OUTPUT_DIR = Path("/tmp/videos")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -50,6 +49,7 @@ def build_video(video_id):
             tts.save(str(audio_path))
 
             # 🎬 Video
+            from moviepy.editor import TextClip, AudioFileClip
             audio = AudioFileClip(str(audio_path))
 
             clip = TextClip(
