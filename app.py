@@ -67,5 +67,10 @@ def health():
     logger.info("Health check requested.")
     return {"status": "ok"}
 
+@app.route("/test")
+def test():
+    return {"status": "ok"}
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
