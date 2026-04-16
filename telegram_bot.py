@@ -1,12 +1,10 @@
 import requests
 import os
-from utils import logger
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 def send_approval(video_id, script):
-    logger.info(f"Sending approval request for video {video_id}...")    
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     text = f"🎬 Script:\n{script[:150]}...\n\nApprove?"
@@ -17,9 +15,19 @@ def send_approval(video_id, script):
             {"text": "❌ Reject", "url": f"{os.getenv('APP_URL')}/reject/{video_id}"}
         ]]
     }
-    logger.info(f"Sending Telegram message for video {video_id}...")
-    requests.post(url, json={
-        "chat_id": CHAT_ID,
-        "text": text,
-        "reply_markup": keyboard
-    })
+
+    try:
+        response = requests.post(
+            url,
+            json={
+                "chat_id": CHAT_ID,
+                "text": text,
+                "reply_markup": keyboard
+            },
+            timeout=5   # 🔥 VERY IMPORTANT
+        )
+
+        print("Telegram response:", response.text)
+
+    except Exception as e:
+        print("Telegram error:", e)
