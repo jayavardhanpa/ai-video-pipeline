@@ -5,6 +5,9 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 def send_approval(video_id, script):
+    print("BOT_TOKEN:", BOT_TOKEN)
+    print("CHAT_ID:", CHAT_ID)
+    print("APP_URL:", os.getenv('APP_URL'))
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     text = f"🎬 Script:\n{script[:150]}...\n\nApprove?"
