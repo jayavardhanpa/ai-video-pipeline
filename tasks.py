@@ -1,4 +1,4 @@
-from db import update_status, get_video
+
 from utils import logger
 from pathlib import Path
 import json
@@ -9,18 +9,12 @@ OUTPUT_DIR = Path("/tmp/videos")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def build_video(video_id):
+def build_video(item):
     try:
+        video_id = item["id"]
+        script_data = item["scripts"]
+
         logger.info(f"Starting build for video {video_id}")
-
-        update_status(video_id, "building")
-
-        item = get_video(video_id)
-
-        if not item:
-            raise Exception("Video not found in DB")
-
-        script_data = json.loads(item["script"])
 
         languages = {
             "telugu": "te",
@@ -44,11 +38,9 @@ def build_video(video_id):
 
             logger.info(f"Generating {lang} video...")
 
-            # 🎤 Voice
             tts = gTTS(text=script, lang=lang_code)
             tts.save(str(audio_path))
 
-            # 🎬 Video
             from moviepy.editor import TextClip, AudioFileClip
             audio = AudioFileClip(str(audio_path))
 
@@ -71,13 +63,10 @@ def build_video(video_id):
 
             videos.append(str(video_path))
 
-        update_status(video_id, "ready")
-
         logger.info(f"Completed video {video_id}")
 
         return videos
 
     except Exception as e:
         logger.error(f"Error building video {video_id}: {e}")
-        update_status(video_id, "error")
         return None
