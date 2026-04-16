@@ -2,7 +2,8 @@
 from utils import logger
 from pathlib import Path
 import json
-
+import moviepy
+logger.info("✅ moviepy loaded successfully")
 from gtts import gTTS
 
 OUTPUT_DIR = Path("/tmp/videos")
