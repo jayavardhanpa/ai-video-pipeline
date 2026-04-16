@@ -36,7 +36,12 @@ def generate():
     try:
         from ai_service import generate_script
 
-        script_data = generate_script()
+        # script_data = generate_script()
+        script_data = {
+    "telugu": "కర్మ చేయండి, ఫలితం గురించి ఆలోచించవద్దు. ఇది భగవద్గీతలోని గొప్ప బోధ.",
+    "hindi": "कर्म करो, फल की चिंता मत करो। यह गीता का संदेश है।",
+    "english": "Do your duty without worrying about results. This is the message of Bhagavad Gita."
+        }
 
         # Save English as preview for Telegram
         preview_script = script_data.get("english", "")
