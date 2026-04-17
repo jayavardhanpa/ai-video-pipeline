@@ -9,9 +9,10 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from moviepy.editor import ImageClip
 
+
 # ✅ Import ONLY required modules (no TextClip)
 try:
-    from moviepy.editor import AudioFileClip, ColorClip
+    from moviepy.editor import AudioFileClip
     MOVIEPY_AVAILABLE = True
     logger.info("✅ moviepy loaded successfully")
 except (ImportError, ModuleNotFoundError) as _moviepy_err:
@@ -79,48 +80,66 @@ def build_video(item):
             # 🎧 Load audio
             audio = AudioFileClip(str(audio_path))
 
-
             # 🖼 Create image
             img = Image.new("RGB", (720, 1280), color=(0, 0, 0))
             draw = ImageDraw.Draw(img)
 
-            # 🔥 MUCH BIGGER FONT
+            # 🔥 BIG FONT (mobile optimized)
             try:
                 font = ImageFont.truetype("DejaVuSans-Bold.ttf", 90)
             except:
                 font = ImageFont.load_default()
 
-            # ✍️ LIMIT TEXT (VERY IMPORTANT)
-            text = script[:120]
-
-            # 🔥 FORCE SHORT LINES (better readability)
+            # ✍️ BETTER TEXT HANDLING
             import textwrap
-            lines = textwrap.wrap(text, width=10)
 
-            # 🔥 LIMIT MAX LINES
-            lines = lines[:4]
+            text = script.strip()
 
-            # 🎯 CENTER AREA
-            y_start = 450
+            # 🔥 Smart wrapping (works for Telugu/Hindi/English)
+            if lang == "english":
+                lines = textwrap.wrap(text, width=18)
+            else:
+                # Telugu/Hindi safer split
+                words = text.split()
+                lines = []
+                line = ""
 
+                for word in words:
+                    if len(line + " " + word) < 20:
+                        line += " " + word
+                    else:
+                        lines.append(line.strip())
+                        line = word
+
+                if line:
+                    lines.append(line)
+
+            # 🔥 Limit to max 3 lines (VERY IMPORTANT)
+            lines = lines[:3]
+
+            # 🎯 Safe center zone
+            total_height = len(lines) * 120
+            y_start = (1280 - total_height) // 2
+            y_start = max(350, y_start)
+            
             for i, line in enumerate(lines):
                 bbox = draw.textbbox((0, 0), line, font=font)
                 w = bbox[2] - bbox[0]
 
                 x = (720 - w) // 2
-                y = y_start + i * 120   # big spacing
+                y = y_start + (i * 120)
 
-                # ✨ SHADOW (improves readability)
-                draw.text((x+3, y+3), line, font=font, fill="gray")
+                # ✨ Shadow (premium look)
+                draw.text((x+3, y+3), line, font=font, fill="black")
 
-                # ✨ MAIN TEXT
+                # ✨ Main text
                 draw.text((x, y), line, font=font, fill="white")
 
             # 🎬 Convert to video
             frame = np.array(img)
             clip = ImageClip(frame).set_duration(audio.duration)
 
-            video = clip.set_audio(audio) 
+            video = clip.set_audio(audio)
 
             video.write_videofile(
                 str(video_path),
