@@ -76,50 +76,45 @@ def build_video(item):
             tts.save(str(audio_path))
 
             # 🎧 Load audio
+            # 🎧 Load audio
             audio = AudioFileClip(str(audio_path))
+
 
             # 🖼 Create image
             img = Image.new("RGB", (720, 1280), color=(0, 0, 0))
             draw = ImageDraw.Draw(img)
 
-            # 🔤 Bigger font (important for mobile)
+            # 🔥 MUCH BIGGER FONT
             try:
-                font = ImageFont.truetype("DejaVuSans-Bold.ttf", 60)
+                font = ImageFont.truetype("DejaVuSans-Bold.ttf", 90)
             except:
                 font = ImageFont.load_default()
 
-            # ✍️ Text content (limit length)
-            text = script[:180]
+            # ✍️ LIMIT TEXT (VERY IMPORTANT)
+            text = script[:120]
 
-            # 🔥 Better wrapping for Telugu / Hindi
+            # 🔥 FORCE SHORT LINES (better readability)
             import textwrap
-            lines = textwrap.wrap(text, width=15)
+            lines = textwrap.wrap(text, width=10)
 
-            # 🎯 SAFE AREA (center zone)
-            SAFE_TOP = 400
-            SAFE_BOTTOM = 900
+            # 🔥 LIMIT MAX LINES
+            lines = lines[:4]
 
-            # 📏 Calculate total height
-            line_heights = []
-            for line in lines:
-                bbox = draw.textbbox((0, 0), line, font=font)
-                line_heights.append(bbox[3] - bbox[1])
+            # 🎯 CENTER AREA
+            y_start = 450
 
-            total_text_height = sum(line_heights) + (len(lines) * 20)
-
-            # 🎯 Center INSIDE SAFE AREA
-            y = SAFE_TOP + ((SAFE_BOTTOM - SAFE_TOP - total_text_height) // 2)
-
-            # 📝 Draw centered text
             for i, line in enumerate(lines):
                 bbox = draw.textbbox((0, 0), line, font=font)
                 w = bbox[2] - bbox[0]
 
                 x = (720 - w) // 2
+                y = y_start + i * 120   # big spacing
 
+                # ✨ SHADOW (improves readability)
+                draw.text((x+3, y+3), line, font=font, fill="gray")
+
+                # ✨ MAIN TEXT
                 draw.text((x, y), line, font=font, fill="white")
-
-                y += line_heights[i] + 20
 
             # 🎬 Convert to video
             frame = np.array(img)
