@@ -121,7 +121,7 @@ def build_video(item):
             total_height = len(lines) * 120
             y_start = (1280 - total_height) // 2
             y_start = max(350, y_start)
-            
+
             for i, line in enumerate(lines):
                 bbox = draw.textbbox((0, 0), line, font=font)
                 w = bbox[2] - bbox[0]
@@ -152,18 +152,28 @@ def build_video(item):
 
         logger.info(f"✅ Completed video {video_id}")
 
-        # 🚀 Upload videos to YouTube
-        for video_file in videos:
-            try:
-                logger.info(f"📤 Uploading {video_file} to YouTube...")
+        # 🚀 Upload videos to YouTube ( MULTIPLE - Commented due to the limit)
+        # for video_file in videos:
+        #     try:
+        #         logger.info(f"📤 Uploading {video_file} to YouTube...")
 
-                upload_video(
-                    video_file,
-                    f"Bhagavad Gita Wisdom | GitaJeevanam"
-                )
+        #         upload_video(
+        #             video_file,
+        #             f"Bhagavad Gita Wisdom | GitaJeevanam"
+        #         )
 
-            except Exception as e:
-                logger.error(f"YouTube upload failed: {e}")    
+        #     except Exception as e:
+        #         logger.error(f"YouTube upload failed: {e}") 
+
+        ## Remove below snippet if you want to upload all language videos. Currently uploading only English due to YouTube limits.
+        video_file = videos[0]   # 🔥 only 1 video
+
+        logger.info(f"📤 Uploading {video_file} to YouTube...")
+
+        title = f"🔥 {script_data.get('english', '')[:45]} #shorts"
+        
+        upload_video(video_file, title)   
+        ##
         if video_id:
             update_status(video_id, "ready")
 
