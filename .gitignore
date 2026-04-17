@@ -1,0 +1,8 @@
+token.b64
+token.json
+client_secret.json
+client_secret.b64
+youtube_service_bkup.py
+__pycache__/
+*.pyc
+.DS_Store

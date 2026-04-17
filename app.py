@@ -41,6 +41,7 @@ def home():
 @app.route("/api/generate", methods=["POST"])
 @require_api_key
 def generate():
+    logger.info("🚀 Scheduler triggered generate API")
     try:
         #script_data = generate_script()  # 🔥 REPLACE WITH AI SERVICE LATER
         # 🔥 Replace with OpenAI later

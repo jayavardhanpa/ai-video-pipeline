@@ -37,8 +37,10 @@ def upload_video(file_path, title):
         part="snippet,status",
         body={
             "snippet": {
-                "title": f"{title} | GitaJeevanam",
-                "description": "Daily Bhagavad Gita wisdom 🙏",
+                "title": f"🔥 {title[:60]} #shorts",
+                "description": """Daily Bhagavad Gita wisdom 🙏
+                #shorts #bhagavadgita #krishna #motivation #life #india
+                """,
                 "tags": ["bhagavad gita", "krishna", "dharma"],
                 "categoryId": "22"
             },

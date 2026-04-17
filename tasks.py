@@ -5,6 +5,9 @@ import moviepy
 from gtts import gTTS
 from db import update_status
 from youtube_service import upload_video
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
+from moviepy.editor import ImageClip
 
 # ✅ Import ONLY required modules (no TextClip)
 try:
@@ -75,14 +78,50 @@ def build_video(item):
             # 🎧 Load audio
             audio = AudioFileClip(str(audio_path))
 
-            # 🎬 Create simple background (NO ImageMagick)
-            background = ColorClip(
-                size=(720, 1280),
-                color=(0, 0, 0)  # black background
-            ).set_duration(audio.duration)
+            # 🖼 Create image
+            img = Image.new("RGB", (720, 1280), color=(0, 0, 0))
+            draw = ImageDraw.Draw(img)
 
-            # 🎥 Combine audio + background
-            video = background.set_audio(audio)
+            # 🔤 Font
+            try:
+                font = ImageFont.truetype("DejaVuSans-Bold.ttf", 48)
+            except:
+                font = ImageFont.load_default()
+
+            # ✍️ Text content
+            text = script[:200]
+
+            # 📏 Wrap text manually
+            import textwrap
+            lines = textwrap.wrap(text, width=20)
+
+            # 🎯 Calculate total height
+            line_heights = []
+            for line in lines:
+                bbox = draw.textbbox((0, 0), line, font=font)
+                line_heights.append(bbox[3] - bbox[1])
+
+            total_text_height = sum(line_heights) + (len(lines) * 10)
+
+            # 🎯 Start Y (center vertically)
+            y = (1280 - total_text_height) // 2
+
+            # 📝 Draw each line centered
+            for i, line in enumerate(lines):
+                bbox = draw.textbbox((0, 0), line, font=font)
+                w = bbox[2] - bbox[0]
+
+                x = (720 - w) // 2
+
+                draw.text((x, y), line, font=font, fill="white")
+
+                y += line_heights[i] + 10
+
+            # 🎬 Convert to video
+            frame = np.array(img)
+            clip = ImageClip(frame).set_duration(audio.duration)
+
+            video = clip.set_audio(audio)  
 
             video.write_videofile(
                 str(video_path),
