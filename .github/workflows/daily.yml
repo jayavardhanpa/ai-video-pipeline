@@ -2,7 +2,7 @@ name: Daily AI Pipeline
 
 on:
   schedule:
-    - cron: "30 0 * * *"   # 6:00 AM IST
+    - cron: "*/10 * * * *"   # Every 10 minutes (TESTING)
   workflow_dispatch:
 
 jobs:
