@@ -1,26 +1,22 @@
 from utils import logger
 from pathlib import Path
-import json
-import moviepy
 from gtts import gTTS
 from db import update_status
 from youtube_service import upload_video
+
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
+
 from moviepy.editor import ImageClip
 
-
-# ✅ Import ONLY required modules (no TextClip)
+# ✅ Safe import
 try:
     from moviepy.editor import AudioFileClip
     MOVIEPY_AVAILABLE = True
     logger.info("✅ moviepy loaded successfully")
-except (ImportError, ModuleNotFoundError) as _moviepy_err:
+except Exception as e:
     MOVIEPY_AVAILABLE = False
-    logger.warning(
-        f"moviepy is not available — video building will be disabled. "
-        f"Reason: {_moviepy_err}"
-    )
+    logger.warning(f"moviepy not available: {e}")
 
 OUTPUT_DIR = Path("/tmp/videos")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -28,9 +24,8 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def build_video(item):
     try:
-        # 🔥 HANDLE BOTH CASES
         if isinstance(item, int):
-            logger.error(f"❌ Received int instead of payload: {item}")
+            logger.error(f"❌ Invalid payload: {item}")
             return
 
         video_id = item.get("id")
@@ -41,12 +36,9 @@ def build_video(item):
             return
 
         if not MOVIEPY_AVAILABLE:
-            logger.error(
-                f"Cannot build video {video_id}: moviepy not installed"
-            )
-            if video_id:
-                update_status(video_id, "error")
-            return None
+            logger.error("MoviePy not available")
+            update_status(video_id, "error")
+            return
 
         logger.info(f"Starting build for video {video_id}")
 
@@ -73,52 +65,45 @@ def build_video(item):
             logger.info(f"🎬 Generating {lang} video...")
 
             # 🎤 Voice
-            tts = gTTS(text=script, lang=lang_code)
-            tts.save(str(audio_path))
+            gTTS(text=script, lang=lang_code).save(str(audio_path))
 
-            # 🎧 Load audio
-            # 🎧 Load audio
             audio = AudioFileClip(str(audio_path))
 
-            # 🖼 Create image
+            # 🖼 Background
             img = Image.new("RGB", (720, 1280), color=(0, 0, 0))
             draw = ImageDraw.Draw(img)
 
-            # 🔥 BIG FONT (mobile optimized)
+            # 🔥 FONT FIX (CRITICAL)
             try:
-                font = ImageFont.truetype("DejaVuSans-Bold.ttf", 90)
+                if lang == "telugu":
+                    font = ImageFont.truetype("assets/NotoSansTelugu-Bold.ttf", 90)
+                else:
+                    font = ImageFont.truetype("assets/NotoSans-Regular.ttf", 90)
             except:
                 font = ImageFont.load_default()
 
-            # ✍️ BETTER TEXT HANDLING
-            import textwrap
-
+            # ✍️ TEXT SPLIT (SAFE)
             text = script.strip()
+            words = text.split()
 
-            # 🔥 Smart wrapping (works for Telugu/Hindi/English)
-            if lang == "english":
-                lines = textwrap.wrap(text, width=18)
-            else:
-                # Telugu/Hindi safer split
-                words = text.split()
-                lines = []
-                line = ""
+            lines = []
+            line = ""
 
-                for word in words:
-                    if len(line + " " + word) < 20:
-                        line += " " + word
-                    else:
-                        lines.append(line.strip())
-                        line = word
+            for word in words:
+                if len(line + " " + word) < 18:
+                    line += " " + word
+                else:
+                    lines.append(line.strip())
+                    line = word
 
-                if line:
-                    lines.append(line)
+            if line:
+                lines.append(line)
 
-            # 🔥 Limit to max 3 lines (VERY IMPORTANT)
-            lines = lines[:3]
+            # 🔥 Keep only 2 lines (important for Shorts)
+            lines = lines[:2]
 
-            # 🎯 Safe center zone
-            total_height = len(lines) * 120
+            # 🎯 Center vertically
+            total_height = len(lines) * 130
             y_start = (1280 - total_height) // 2
             y_start = max(350, y_start)
 
@@ -127,18 +112,17 @@ def build_video(item):
                 w = bbox[2] - bbox[0]
 
                 x = (720 - w) // 2
-                y = y_start + (i * 120)
+                y = y_start + (i * 130)
 
-                # ✨ Shadow (premium look)
-                draw.text((x+3, y+3), line, font=font, fill="black")
+                # Shadow
+                draw.text((x+4, y+4), line, font=font, fill="black")
 
-                # ✨ Main text
+                # Main
                 draw.text((x, y), line, font=font, fill="white")
 
-            # 🎬 Convert to video
+            # 🎬 Create video
             frame = np.array(img)
             clip = ImageClip(frame).set_duration(audio.duration)
-
             video = clip.set_audio(audio)
 
             video.write_videofile(
@@ -152,35 +136,23 @@ def build_video(item):
 
         logger.info(f"✅ Completed video {video_id}")
 
-        # 🚀 Upload videos to YouTube 
-        for video_file in videos:
+        # 🚀 Upload ONLY ONE video (avoid limit)
+        if videos:
+            video_file = videos[0]
+
+            title = f"🔥 {script_data.get('english','')[:45]} #shorts"
+
             try:
-                logger.info(f"📤 Uploading {video_file} to YouTube...")
-
-                upload_video(
-                    video_file,
-                    f"Bhagavad Gita Wisdom | GitaJeevanam"
-                )
-
+                logger.info(f"📤 Uploading {video_file}")
+                upload_video(video_file, title)
             except Exception as e:
-                logger.error(f"YouTube upload failed: {e}") 
+                logger.error(f"YouTube upload failed: {e}")
 
-        ## Remove below snippet if you want to upload all language videos. Currently uploading only English due to YouTube limits.
-        # video_file = videos[0]   # 🔥 only 1 video
-
-        # logger.info(f"📤 Uploading {video_file} to YouTube...")
-
-        # title = f"🔥 {script_data.get('english', '')[:45]} #shorts"
-        
-        # upload_video(video_file, title)   
-        ##
-        if video_id:
-            update_status(video_id, "ready")
+        update_status(video_id, "ready")
 
         return videos
 
     except Exception as e:
-        logger.error(f"❌ Error building video: {e}")
-        if video_id:
-            update_status(video_id, "error")
+        logger.error(f"❌ Error: {e}")
+        update_status(video_id, "error")
         return None

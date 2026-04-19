@@ -1,5 +1,6 @@
 from openai import OpenAI
 import os
+from utils import logger
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -21,5 +22,7 @@ def generate_script():
         messages=[{"role": "user", "content": prompt}],
         max_tokens=300
     )
+
+    logger.info(f"Received script generation response from OpenAI.")
 
     return eval(response.choices[0].message.content)
