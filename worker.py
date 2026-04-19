@@ -6,6 +6,10 @@ import os
 # 🔥 ADD THIS
 from db import init_db
 
+# Import job functions so RQ can locate and execute them when dequeuing
+from telegram_bot import send_approval
+from tasks import build_video
+
 listen = ['default']
 
 redis_url = os.getenv("REDIS_URL")
