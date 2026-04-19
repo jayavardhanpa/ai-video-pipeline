@@ -10,6 +10,7 @@ from rq import Queue
 from tasks import build_video
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from scheduler import start_scheduler
 
 app = Flask(__name__)
 
@@ -29,6 +30,9 @@ q = Queue(connection=redis_conn)
 
 # 🔥 In-memory store (IMPORTANT)
 video_store = {}
+
+# ⏰ Start background scheduler (runs every 24 hours)
+start_scheduler(q, video_store, interval_hours=24)
 
 
 @app.route("/")
