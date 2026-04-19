@@ -6,7 +6,6 @@ from youtube_service import upload_video
 
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
-
 from moviepy.editor import ImageClip
 
 # ✅ Safe import
@@ -50,6 +49,10 @@ def build_video(item):
 
         videos = []
 
+        # 🔥 USE ONE FONT FOR EVERYTHING
+        font_path = Path(__file__).parent / "assets/NotoSansTelugu-Bold.ttf"
+        font = ImageFont.truetype(str(font_path), 110)
+
         for lang, lang_code in languages.items():
             script = script_data.get(lang)
 
@@ -73,51 +76,30 @@ def build_video(item):
             img = Image.new("RGB", (720, 1280), color=(0, 0, 0))
             draw = ImageDraw.Draw(img)
 
-            # 🔥 FONT FIX (CRITICAL)
-            try:
-                if lang == "telugu":
-                    font = ImageFont.truetype("assets/NotoSansTelugu-Bold.ttf", 90)
-                else:
-                    font = ImageFont.truetype("assets/NotoSans-Regular.ttf", 90)
-            except:
-                font = ImageFont.load_default()
-
-            # ✍️ TEXT SPLIT (SAFE)
+            # ✍️ TEXT (SHORT & CLEAN)
             text = script.strip()
             words = text.split()
 
-            lines = []
-            line = ""
+            # 🔥 FORCE 2 STRONG LINES
+            line1 = " ".join(words[:3])
+            line2 = " ".join(words[3:6])
 
-            for word in words:
-                if len(line + " " + word) < 18:
-                    line += " " + word
-                else:
-                    lines.append(line.strip())
-                    line = word
+            lines = [line1, line2]
 
-            if line:
-                lines.append(line)
-
-            # 🔥 Keep only 2 lines (important for Shorts)
-            lines = lines[:2]
-
-            # 🎯 Center vertically
-            total_height = len(lines) * 130
-            y_start = (1280 - total_height) // 2
-            y_start = max(350, y_start)
+            # 🎯 CENTER
+            y_start = 550
 
             for i, line in enumerate(lines):
                 bbox = draw.textbbox((0, 0), line, font=font)
                 w = bbox[2] - bbox[0]
 
                 x = (720 - w) // 2
-                y = y_start + (i * 130)
+                y = y_start + (i * 140)
 
                 # Shadow
-                draw.text((x+4, y+4), line, font=font, fill="black")
+                draw.text((x+5, y+5), line, font=font, fill="black")
 
-                # Main
+                # Main text
                 draw.text((x, y), line, font=font, fill="white")
 
             # 🎬 Create video
@@ -136,7 +118,7 @@ def build_video(item):
 
         logger.info(f"✅ Completed video {video_id}")
 
-        # 🚀 Upload ONLY ONE video (avoid limit)
+        # 🚀 Upload ONLY ONE video
         if videos:
             video_file = videos[0]
 
