@@ -4,8 +4,9 @@ from gtts import gTTS
 from db import update_status
 from youtube_service import upload_video
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import numpy as np
+import random
 from moviepy.editor import ImageClip
 
 # ✅ Safe import
@@ -19,6 +20,81 @@ except Exception as e:
 
 OUTPUT_DIR = Path("/tmp/videos")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# 🎯 Fonts
+FONT_MAP = {
+    "telugu": "assets/NotoSansTelugu-Bold.ttf",
+    "hindi": "assets/NotoSansDevanagari-Bold.ttf",
+    "english": "assets/NotoSans-Bold.ttf"
+}
+
+
+# 🔥 Improved font scaling
+def get_font(lang, text):
+    font_path = Path(__file__).parent / FONT_MAP.get(lang)
+
+    base_size = 105 if lang == "telugu" else 85
+
+    if len(text) > 100:
+        base_size -= 30
+    elif len(text) > 70:
+        base_size -= 20
+    elif len(text) > 40:
+        base_size -= 10
+
+    return ImageFont.truetype(str(font_path), base_size)
+
+
+# 🔥 FINAL wrap logic (no word cutting)
+def wrap_text(draw, text, font, max_width_px):
+    words = text.split()
+    lines = []
+    current = ""
+
+    for word in words:
+        test = current + (" " if current else "") + word
+        bbox = draw.textbbox((0, 0), test, font=font)
+        width = bbox[2] - bbox[0]
+
+        if width <= max_width_px:
+            current = test
+        else:
+            lines.append(current)
+            current = word
+
+    if current:
+        lines.append(current)
+
+    return lines[:2]
+
+
+# 🔥 Clean AI text
+def clean_text(text):
+    text = text.replace(" ,", "").replace(", ", "")
+    text = text.replace("  ", " ")
+    text = text.replace(" .", ".")
+    return text.strip()
+
+
+# 🎨 Background loader
+def get_background():
+    bg_dir = Path(__file__).parent / "assets/backgrounds"
+    images = list(bg_dir.glob("*.jpg"))
+
+    if not images:
+        return Image.new("RGB", (720, 1280), (10, 10, 10))
+
+    img_path = random.choice(images)
+
+    img = Image.open(img_path).convert("RGB")
+    img = img.resize((720, 1280))
+
+    img = img.filter(ImageFilter.GaussianBlur(6))
+
+    overlay = Image.new("RGB", (720, 1280), (0, 0, 0))
+    img = Image.blend(img, overlay, 0.4)
+
+    return img
 
 
 def build_video(item):
@@ -39,7 +115,7 @@ def build_video(item):
             update_status(video_id, "error")
             return
 
-        logger.info(f"Starting build for video {video_id}")
+        logger.info(f"🚀 Starting build for video {video_id}")
 
         languages = {
             "telugu": "te",
@@ -48,10 +124,6 @@ def build_video(item):
         }
 
         videos = []
-
-        # 🔥 USE ONE FONT FOR EVERYTHING
-        font_path = Path(__file__).parent / "assets/NotoSansTelugu-Bold.ttf"
-        font = ImageFont.truetype(str(font_path), 110)
 
         for lang, lang_code in languages.items():
             script = script_data.get(lang)
@@ -69,59 +141,73 @@ def build_video(item):
 
             # 🎤 Voice
             gTTS(text=script, lang=lang_code).save(str(audio_path))
-
             audio = AudioFileClip(str(audio_path))
 
             # 🖼 Background
-            img = Image.new("RGB", (720, 1280), color=(0, 0, 0))
+            img = get_background()
             draw = ImageDraw.Draw(img)
 
-            # ✍️ TEXT (SHORT & CLEAN)
-            text = script.strip()
-            words = text.split()
+            # ✍️ Text processing
+            text = clean_text(script)
+            
+            font = get_font(lang, text)
+            lines = wrap_text(draw, text, font, 600)
 
-            # 🔥 FORCE 2 STRONG LINES
-            line1 = " ".join(words[:3])
-            line2 = " ".join(words[3:6])
+            # 🔥 Measure text block
+            line_heights = []
+            line_widths = []
 
-            lines = [line1, line2]
-
-            # 🎯 CENTER
-            y_start = 550
-
-            for i, line in enumerate(lines):
+            for line in lines:
                 bbox = draw.textbbox((0, 0), line, font=font)
                 w = bbox[2] - bbox[0]
+                h = bbox[3] - bbox[1]
+                line_widths.append(w)
+                line_heights.append(h)
+
+            total_height = sum(line_heights) + (len(lines) - 1) * 40
+
+            # 🔥 Center vertically
+            y = (1280 - total_height) // 2
+
+            for i, line in enumerate(lines):
+                w = line_widths[i]
+                h = line_heights[i]
 
                 x = (720 - w) // 2
-                y = y_start + (i * 140)
 
                 # Shadow
-                draw.text((x+5, y+5), line, font=font, fill="black")
+                draw.text((x + 4, y + 4), line, font=font, fill="black")
 
                 # Main text
-                draw.text((x, y), line, font=font, fill="white")
+                draw.text((x, y), line, font=font, fill=(255, 255, 255))
 
-            # 🎬 Create video
+                y += h + 25
+
+            # 🎬 Convert to video
             frame = np.array(img)
-            clip = ImageClip(frame).set_duration(audio.duration)
+
+            clip = ImageClip(frame)\
+                .set_duration(audio.duration)\
+                .resize(lambda t: 1 + 0.05 * t)
+
             video = clip.set_audio(audio)
 
             video.write_videofile(
                 str(video_path),
                 fps=24,
                 codec="libx264",
-                audio_codec="aac"
+                audio_codec="aac",
+                verbose=False,
+                logger=None
             )
 
             videos.append(str(video_path))
 
         logger.info(f"✅ Completed video {video_id}")
 
-        # 🚀 Upload ONLY ONE video
+        # 🚀 Upload first video
         if videos:
             video_file = videos[0]
-
             title = f"🔥 {script_data.get('english','')[:45]} #shorts"
 
             try:
