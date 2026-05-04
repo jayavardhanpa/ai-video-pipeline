@@ -8,6 +8,7 @@ from utils import require_api_key, logger
 from redis import Redis
 from rq import Queue
 from tasks import build_video
+from ai_service import generate_script
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -43,15 +44,15 @@ def home():
 def generate():
     logger.info("🚀 Scheduler triggered generate API")
     try:
-        #script_data = generate_script()  # 🔥 REPLACE WITH AI SERVICE LATER
-        # 🔥 Replace with OpenAI later
-        script_data = {
-            "telugu": "కర్మ చేయండి, ఫలితం గురించి ఆలోచించవద్దు. ఇది భగవద్గీతలోని గొప్ప బోధ.",
-            "hindi": "कर्म करो, फल की चिंता मत करो। यह गीता का संदेश है।",
-            "english": "Do your duty without worrying about results. This is the message of Bhagavad Gita."
-        }
-
+        logger.info("📝 Calling generate_script() from OpenAI...")
+        script_data = generate_script()
+        
+        if not script_data:
+            logger.error("❌ Failed to generate script from OpenAI")
+            return {"error": "Script generation failed - check OpenAI API key"}, 500
+        
         preview_script = script_data.get("english", "")
+        logger.info(f"✅ Script generated: {preview_script[:50]}...")
 
         # Save in DB (optional)
         vid = insert_video(str(script_data))
@@ -64,7 +65,7 @@ def generate():
 
         logger.info(f"Enqueued Telegram approval for video {vid}")
 
-        return {"status": "ok", "id": vid}
+        return {"status": "ok", "id": vid, "preview": preview_script}
 
     except Exception as e:
         logger.error(f"Error in /api/generate: {e}")
@@ -110,6 +111,34 @@ def reject(vid):
 @limiter.limit("20 per minute")
 def health():
     return {"status": "ok"}
+
+
+# 🔑 CHECK OPENAI API KEY
+@app.route("/check-openai-key")
+@limiter.limit("20 per minute")
+def check_openai_key():
+    """Check if OpenAI API key is configured"""
+    import os
+    api_key = os.getenv("OPENAI_API_KEY")
+    
+    if not api_key:
+        logger.error("❌ OPENAI_API_KEY not configured")
+        return {
+            "status": "error",
+            "message": "OPENAI_API_KEY environment variable is not set",
+            "configured": False
+        }, 500
+    
+    key_preview = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "***"
+    logger.info(f"✅ OPENAI_API_KEY is configured: {key_preview}")
+    
+    return {
+        "status": "ok",
+        "message": "OpenAI API key is configured",
+        "configured": True,
+        "key_length": len(api_key),
+        "key_preview": key_preview
+    }
 
 
 # 🧪 TEST
