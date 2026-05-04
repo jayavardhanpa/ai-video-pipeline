@@ -5,7 +5,6 @@ from db import update_status
 from youtube_service import upload_video
 import subprocess
 import random
-import imageio_ffmpeg
 import tempfile
 import os
 import shutil
@@ -124,7 +123,7 @@ def build_video(item, upload=True):
                 return
 
             # Prepare paths
-            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+            ffmpeg_exe = "ffmpeg"
             bg_abs = str(Path(bg).absolute()).replace('\\', '/')
             ass_abs = ffmpeg_filter_path(str(ass_path.absolute()))
             audio_abs = str(audio_path.absolute()).replace('\\', '/')
@@ -182,7 +181,7 @@ def build_video(item, upload=True):
 def get_audio_duration(audio_path: str) -> float:
     """Get duration of audio file in seconds"""
     try:
-        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        ffmpeg_exe = "ffmpeg"
         result = subprocess.run(
             [ffmpeg_exe, '-i', audio_path],
             capture_output=True,
