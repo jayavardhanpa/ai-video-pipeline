@@ -3,224 +3,200 @@ from pathlib import Path
 from gtts import gTTS
 from db import update_status
 from youtube_service import upload_video
-
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
-import numpy as np
+import subprocess
 import random
-from moviepy.editor import ImageClip
+import imageio_ffmpeg
+import tempfile
+import os
+import shutil
+import re
 
-# ✅ Safe import
-try:
-    from moviepy.editor import AudioFileClip
-    MOVIEPY_AVAILABLE = True
-    logger.info("✅ moviepy loaded successfully")
-except Exception as e:
-    MOVIEPY_AVAILABLE = False
-    logger.warning(f"moviepy not available: {e}")
-
-OUTPUT_DIR = Path("/tmp/videos")
+OUTPUT_DIR = Path(tempfile.gettempdir()) / "ai_videos"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# 🎯 Fonts
-FONT_MAP = {
-    "telugu": "assets/NotoSansTelugu-Bold.ttf",
-    "hindi": "assets/NotoSansDevanagari-Bold.ttf",
-    "english": "assets/NotoSans-Bold.ttf"
-}
+ASSETS_DIR = Path("assets")
+BG_DIR = ASSETS_DIR / "backgrounds"
+FONT_DIR = ASSETS_DIR  # fonts are already in assets/
 
+# Create a temporary fonts directory with a safe path (no special chars)
+TEMP_FONT_DIR = Path(tempfile.gettempdir()) / "ai_fonts"
+TEMP_FONT_DIR.mkdir(parents=True, exist_ok=True)
 
-# 🔥 Improved font scaling
-def get_font(lang, text):
-    font_path = Path(__file__).parent / FONT_MAP.get(lang)
+def setup_fonts():
+    """Copy fonts to temp directory with safe path (no special chars)"""
+    if not any(TEMP_FONT_DIR.glob("*.ttf")):
+        # Copy fonts
+        for font_file in FONT_DIR.glob("*.ttf"):
+            shutil.copy(font_file, TEMP_FONT_DIR / font_file.name)
+        logger.info(f"✅ Fonts copied to {TEMP_FONT_DIR}")
 
-    base_size = 105 if lang == "telugu" else 85
-
-    if len(text) > 100:
-        base_size -= 30
-    elif len(text) > 70:
-        base_size -= 20
-    elif len(text) > 40:
-        base_size -= 10
-
-    return ImageFont.truetype(str(font_path), base_size)
-
-
-# 🔥 FINAL wrap logic (no word cutting)
-def wrap_text(draw, text, font, max_width_px):
-    words = text.split()
-    lines = []
-    current = ""
-
-    for word in words:
-        test = current + (" " if current else "") + word
-        bbox = draw.textbbox((0, 0), test, font=font)
-        width = bbox[2] - bbox[0]
-
-        if width <= max_width_px:
-            current = test
-        else:
-            lines.append(current)
-            current = word
-
-    if current:
-        lines.append(current)
-
-    return lines[:2]
-
-
-# 🔥 Clean AI text
-def clean_text(text):
-    text = text.replace(" ,", "").replace(", ", "")
-    text = text.replace("  ", " ")
-    text = text.replace(" .", ".")
-    return text.strip()
-
-
-# 🎨 Background loader
+# ------------------------------
+# Helpers
+# ------------------------------
 def get_background():
-    bg_dir = Path(__file__).parent / "assets/backgrounds"
-    images = list(bg_dir.glob("*.jpg"))
-
-    if not images:
-        return Image.new("RGB", (720, 1280), (10, 10, 10))
-
-    img_path = random.choice(images)
-
-    img = Image.open(img_path).convert("RGB")
-    img = img.resize((720, 1280))
-
-    img = img.filter(ImageFilter.GaussianBlur(6))
-
-    overlay = Image.new("RGB", (720, 1280), (0, 0, 0))
-    img = Image.blend(img, overlay, 0.4)
-
-    return img
+    images = list(BG_DIR.glob("*.jpg"))
+    return str(random.choice(images)) if images else None
 
 
-def build_video(item):
+def font_for_lang(lang: str) -> str:
+    return {
+        "telugu": "Noto Sans Telugu",
+        "hindi": "Noto Sans Devanagari",
+        "english": "Noto Sans",
+    }.get(lang, "Noto Sans")
+
+
+def escape_ass_text(text: str) -> str:
+    """Escape ASS control characters in subtitle text."""
+    return text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
+
+
+def ffmpeg_filter_path(path: str) -> str:
+    """Escape a path for ffmpeg filter expressions on Windows."""
+    safe_path = path.replace('\\', '/').replace("'", "\\'")
+    return safe_path.replace(':', '\\:')
+
+
+def create_ass_subtitle(text: str, out_path: Path, font_name: str):
+    """Create ASS subtitle with proper centering and outline."""
+    safe_text = escape_ass_text(text)
+    ass = f"""[Script Info]
+ScriptType: v4.00+
+PlayResX: 720
+PlayResY: 1280
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name,Fontname,Fontsize,PrimaryColour,OutlineColour,BackColour,Bold,Italic,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding
+Style: Default,{font_name},60,&H00FFFFFF,&H00000000,&H64000000,1,0,1,3,0,2,40,40,80,1
+
+[Events]
+Format: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text
+Dialogue: 0,0:00:00.00,9:59:59.00,Default,,0,0,0,,{safe_text}
+"""
+    out_path.write_text(ass, encoding="utf-8")
+
+
+# ------------------------------
+# Main
+# ------------------------------
+def build_video(item, upload=True):
     try:
-        if isinstance(item, int):
-            logger.error(f"❌ Invalid payload: {item}")
-            return
-
+        setup_fonts()  # Ensure fonts are in temp directory with safe path
+        
         video_id = item.get("id")
-        script_data = item.get("scripts")
+        scripts = item.get("scripts")
 
-        if not script_data:
-            logger.error(f"No script data for video {video_id}")
+        if not scripts:
+            logger.error("No script data")
             return
-
-        if not MOVIEPY_AVAILABLE:
-            logger.error("MoviePy not available")
-            update_status(video_id, "error")
-            return
-
-        logger.info(f"🚀 Starting build for video {video_id}")
-
-        languages = {
-            "telugu": "te",
-            "hindi": "hi",
-            "english": "en"
-        }
 
         videos = []
 
-        for lang, lang_code in languages.items():
-            script = script_data.get(lang)
-
-            if not script:
+        for lang, code in {
+            "english": "en",
+            "telugu": "te",
+            "hindi": "hi",
+        }.items():
+            text = scripts.get(lang)
+            if not text:
                 continue
+
+            logger.info(f"🎬 Generating {lang}")
 
             vid_dir = OUTPUT_DIR / f"{video_id}_{lang}"
             vid_dir.mkdir(parents=True, exist_ok=True)
 
             audio_path = vid_dir / "audio.mp3"
             video_path = OUTPUT_DIR / f"{video_id}_{lang}.mp4"
+            ass_path = vid_dir / "sub.ass"
 
-            logger.info(f"🎬 Generating {lang} video...")
+            # 🔊 AUDIO
+            gTTS(text=text, lang=code).save(str(audio_path))
 
-            # 🎤 Voice
-            gTTS(text=script, lang=lang_code).save(str(audio_path))
-            audio = AudioFileClip(str(audio_path))
+            # 📝 ASS SUBTITLE
+            create_ass_subtitle(text, ass_path, font_for_lang(lang))
 
-            # 🖼 Background
-            img = get_background()
-            draw = ImageDraw.Draw(img)
+            # 🖼 BACKGROUND
+            bg = get_background()
+            if not bg:
+                logger.error("No background images found")
+                return
 
-            # ✍️ Text processing
-            text = clean_text(script)
-            
-            font = get_font(lang, text)
-            lines = wrap_text(draw, text, font, 600)
+            # Prepare paths
+            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+            bg_abs = str(Path(bg).absolute()).replace('\\', '/')
+            ass_abs = ffmpeg_filter_path(str(ass_path.absolute()))
+            audio_abs = str(audio_path.absolute()).replace('\\', '/')
+            video_abs = str(video_path.absolute()).replace('\\', '/')
+            fonts_dir = ffmpeg_filter_path(str(TEMP_FONT_DIR.absolute()))
 
-            # 🔥 Measure text block
-            line_heights = []
-            line_widths = []
+            filter_str = f"scale=720:1280,subtitles='{ass_abs}':fontsdir='{fonts_dir}'"
 
-            for line in lines:
-                bbox = draw.textbbox((0, 0), line, font=font)
-                w = bbox[2] - bbox[0]
-                h = bbox[3] - bbox[1]
-                line_widths.append(w)
-                line_heights.append(h)
+            cmd = [
+                ffmpeg_exe,
+                "-y",
+                "-loop", "1",
+                "-i", bg_abs,
+                "-i", audio_abs,
+                "-vf", filter_str,
+                "-c:v", "libx264",
+                "-preset", "medium",
+                "-tune", "stillimage",
+                "-c:a", "aac",
+                "-shortest",
+                "-pix_fmt", "yuv420p",
+                video_abs
+            ]
 
-            total_height = sum(line_heights) + (len(lines) - 1) * 40
+            logger.info(f"📹 FFmpeg command: {' '.join(cmd)}")
+            subprocess.run(cmd, check=True)
 
-            # 🔥 Center vertically
-            y = (1280 - total_height) // 2
-
-            for i, line in enumerate(lines):
-                w = line_widths[i]
-                h = line_heights[i]
-
-                x = (720 - w) // 2
-
-                # Shadow
-                draw.text((x + 4, y + 4), line, font=font, fill="black")
-
-                # Main text
-                draw.text((x, y), line, font=font, fill=(255, 255, 255))
-
-                y += h + 25
-
-            # 🎬 Convert to video
-            frame = np.array(img)
-
-            clip = ImageClip(frame)\
-                .set_duration(audio.duration)\
-                .resize(lambda t: 1 + 0.05 * t)
-
-            video = clip.set_audio(audio)
-
-            video.write_videofile(
-                str(video_path),
-                fps=24,
-                codec="libx264",
-                audio_codec="aac",
-                verbose=False,
-                logger=None
-            )
-
+            logger.info(f"✅ Video created: {video_path}")
             videos.append(str(video_path))
 
         logger.info(f"✅ Completed video {video_id}")
 
-        # 🚀 Upload first video
-        if videos:
-            video_file = videos[0]
-            title = f"🔥 {script_data.get('english','')[:45]} #shorts"
-
+        if videos and upload:
             try:
-                logger.info(f"📤 Uploading {video_file}")
-                upload_video(video_file, title)
+                title = f"🔥 {scripts.get('english','')[:45]} #shorts"
+                upload_video(videos[0], title)
+                update_status(video_id, "completed")
             except Exception as e:
-                logger.error(f"YouTube upload failed: {e}")
-
-        update_status(video_id, "ready")
+                logger.error(f"Upload failed: {e}")
+                update_status(video_id, "error")
+        else:
+            update_status(video_id, "completed")
 
         return videos
 
     except Exception as e:
         logger.error(f"❌ Error: {e}")
-        update_status(video_id, "error")
+        try:
+            update_status(video_id, "error")
+        except:
+            pass
         return None
+
+
+def get_audio_duration(audio_path: str) -> float:
+    """Get duration of audio file in seconds"""
+    try:
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        result = subprocess.run(
+            [ffmpeg_exe, '-i', audio_path],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        stderr = result.stderr
+        match = re.search(r'Duration: (\d+):(\d+):(\d+\.\d+)', stderr)
+        if match:
+            hours = int(match.group(1))
+            minutes = int(match.group(2))
+            seconds = float(match.group(3))
+            return hours * 3600 + minutes * 60 + seconds
+        return 5.0
+    except Exception as e:
+        logger.warning(f"Failed to read audio duration: {e}")
+        return 5.0  # Default 5 seconds
