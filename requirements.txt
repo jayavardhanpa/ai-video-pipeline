@@ -15,6 +15,7 @@ moviepy==1.0.3
 Pillow>=10.0.0
 imageio==2.31.1
 imageio-ffmpeg==0.4.8
+setuptools
 numpy==1.26.4
 gTTS==2.5.1
 pydub==0.25.1
