@@ -1,5 +1,7 @@
 from openai import OpenAI
 import os
+import json
+import re
 from utils import logger
 
 # Check if OpenAI API key is configured
@@ -40,7 +42,18 @@ def generate_script():
         )
 
         logger.info(f"✅ Received script generation response from OpenAI.")
-        result = eval(response.choices[0].message.content)
+        raw_content = response.choices[0].message.content
+
+        # Strip markdown code fences if present (e.g. ```json ... ```)
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_content, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+        else:
+            # Fall back to extracting the first {...} block from the response
+            match = re.search(r"\{.*\}", raw_content, re.DOTALL)
+            json_str = match.group(0) if match else raw_content
+
+        result = json.loads(json_str)
         logger.info(f"📝 Generated script (English): {result.get('english', '')[:50]}...")
         
         return result
