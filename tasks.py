@@ -1,6 +1,7 @@
 from utils import logger
 from pathlib import Path
 from gtts import gTTS
+import pyttsx3
 from db import update_status
 from youtube_service import upload_video
 import subprocess
@@ -111,7 +112,18 @@ def build_video(item, upload=True):
             ass_path = vid_dir / "sub.ass"
 
             # 🔊 AUDIO
-            gTTS(text=text, lang=code).save(str(audio_path))
+            try:
+                if lang == "english":
+                    engine = pyttsx3.init()
+                    engine.save_to_file(text, str(audio_path))
+                    engine.runAndWait()
+                else:
+                    gTTS(text=text, lang=code).save(str(audio_path))
+                duration = get_audio_duration(str(audio_path))
+                logger.info(f"✅ Audio generated for {lang}: {audio_path}, duration: {duration}s")
+            except Exception as e:
+                logger.error(f"❌ Failed to generate audio for {lang}: {e}")
+                continue  # Skip this language
 
             # 📝 ASS SUBTITLE
             create_ass_subtitle(text, ass_path, font_for_lang(lang))
@@ -139,6 +151,7 @@ def build_video(item, upload=True):
                 "-i", bg_abs,
                 "-i", audio_abs,
                 "-vf", filter_str,
+                "-af", "volume=2.0",
                 "-c:v", "libx264",
                 "-preset", "medium",
                 "-tune", "stillimage",
@@ -157,13 +170,16 @@ def build_video(item, upload=True):
         logger.info(f"✅ Completed video {video_id}")
 
         if videos and upload:
-            try:
-                title = f"🔥 {scripts.get('english','')[:45]} #shorts"
-                upload_video(videos[0], title)
-                update_status(video_id, "completed")
-            except Exception as e:
-                logger.error(f"Upload failed: {e}")
-                update_status(video_id, "error")
+            for i, video_path in enumerate(videos):
+                lang = ["english", "telugu", "hindi"][i]  # Assuming order matches
+                try:
+                    script_text = scripts.get(lang, "")[:45]
+                    title = f"🔥 {script_text} #shorts"
+                    upload_video(video_path, title)
+                    logger.info(f"✅ Uploaded {lang} video")
+                except Exception as e:
+                    logger.error(f"Upload failed for {lang}: {e}")
+            update_status(video_id, "completed")
         else:
             update_status(video_id, "completed")
 
