@@ -21,9 +21,18 @@ if __name__ == "__main__":
     item = {
         "id": 1,
         "scripts": {
-            "english": "Discipline creates success",
-            "telugu": "క్రమశిక్షణ విజయాన్ని తీసుకువస్తుంది",
-            "hindi": "अनुशासन सफलता लाता है"
+            "hook": "Feeling lost in life?",
+            "english": "...",
+            "telugu": "...",
+            "hindi": "...",
+
+            "title_en": "...",
+            "title_te": "...",
+            "title_hi": "...",
+
+            "hashtags_en": ["#shorts"],
+            "hashtags_te": ["#shorts"],
+            "hashtags_hi": ["#shorts"]
         }
     }
 

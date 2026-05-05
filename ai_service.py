@@ -9,54 +9,87 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_script(retries=3):
     prompt = """
-Generate a short spiritual YouTube script based on Bhagavad Gita.
+You are a viral YouTube Shorts content creator.
 
-Return STRICT JSON ONLY:
+Create a HIGHLY ENGAGING short script inspired by Bhagavad Gita.
+
+RULES:
+- Hook in first line (emotion, curiosity, or shock)
+- Max 2–3 lines total
+- Simple, powerful words
+- Relatable to daily life (stress, failure, success, karma)
+- Make it emotional and slightly dramatic
+- Avoid complex Sanskrit explanations
+
+OUTPUT STRICT JSON:
 
 {
+  "hook": "...",
+  "english": "...",
   "telugu": "...",
   "hindi": "...",
-  "english": "..."
+
+  "title_en": "...",
+  "title_te": "...",
+  "title_hi": "...",
+
+  "hashtags_en": ["#shorts", "..."],
+  "hashtags_te": ["#shorts", "..."],
+  "hashtags_hi": ["#shorts", "..."]
 }
 """
 
     for attempt in range(retries):
         try:
-            logger.info("🤖 Sending request to OpenAI API...")
+            logger.info("🤖 Generating viral script...")
 
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=500,
-                temperature=0.7,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
+                max_tokens=180,
+                temperature=0.9
             )
 
             content = response.choices[0].message.content.strip()
-
             logger.info(f"📥 Raw response: {content}")
 
-            # ✅ Safe JSON parsing
             data = json.loads(content)
 
-            # ✅ Validate keys
-            if not all(k in data for k in ["telugu", "hindi", "english"]):
-                raise ValueError("Invalid JSON format from AI")
+            required_keys = [
+                "hook",
+                "english",
+                "telugu",
+                "hindi",
+                "title_en",
+                "title_te",
+                "title_hi",
+                "hashtags_en",
+                "hashtags_te",
+                "hashtags_hi"
+            ]
+            if not all(k in data for k in required_keys):
+                raise ValueError("Invalid JSON format")
 
             return data
 
         except Exception as e:
             logger.error(f"❌ Attempt {attempt+1} failed: {e}")
+            time.sleep(2 ** attempt)
 
-            if attempt < retries - 1:
-                time.sleep(2 ** attempt)  # exponential backoff
-            else:
-                logger.error("❌ All retries failed. Using fallback script.")
+    logger.error("❌ All retries failed. Using fallback.")
 
-                # ✅ Fallback (so pipeline never breaks)
-                return {
-                    "telugu": "కర్మ చేయండి, ఫలితం గురించి ఆలోచించవద్దు.",
-                    "hindi": "कर्म करो, फल की चिंता मत करो।",
-                    "english": "Do your duty without worrying about results."
-                }
-            
+    return {
+        "hook": "Feeling lost in life?",
+        "english": "Do your duty without worrying about results.",
+        "telugu": "నీ కర్తవ్యాన్ని చేయి, ఫలితంపై ఆలోచించకు.",
+        "hindi": "कर्म करो, फल की चिंता मत करो।",
+
+        "title_en": "Krishna's Advice You Need Today",
+        "title_te": "కృష్ణుని మాటలు మీ జీవితాన్ని మార్చుతాయి",
+        "title_hi": "कृष्ण की सीख जो जीवन बदल दे",
+
+        "hashtags_en": ["#shorts", "#bhagavadgita", "#krishna", "#motivation"],
+        "hashtags_te": ["#shorts", "#bhagavadgita", "#telugu", "#motivation"],
+        "hashtags_hi": ["#shorts", "#bhagavadgita", "#hindi", "#motivation"]
+    }

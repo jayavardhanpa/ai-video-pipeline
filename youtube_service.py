@@ -10,17 +10,10 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
 
 def load_credentials():
-    logger.info("Decoding YouTube credentials from base64...")
-
-    # Decode token.json
     token_b64 = os.getenv("YOUTUBE_TOKEN_B64")
     token_json = base64.b64decode(token_b64).decode("utf-8")
-    logger.info(f"Token length: {len(token_b64)}")    
     creds_data = json.loads(token_json)
-
-    creds = Credentials.from_authorized_user_info(creds_data, SCOPES)
-
-    return creds
+    return Credentials.from_authorized_user_info(creds_data, SCOPES)
 
 
 def get_youtube_service():
@@ -28,31 +21,39 @@ def get_youtube_service():
     return build("youtube", "v3", credentials=creds)
 
 
-def upload_video(file_path, title):
+def upload_video(file_path, data, lang):
     logger.info(f"Uploading video: {file_path}")
 
     youtube = get_youtube_service()
+
+    if lang == "telugu":
+        title = data.get("title_te")
+        hashtags = data.get("hashtags_te", [])
+    elif lang == "hindi":
+        title = data.get("title_hi")
+        hashtags = data.get("hashtags_hi", [])
+    else:
+        title = data.get("title_en")
+        hashtags = data.get("hashtags_en", [])
 
     request = youtube.videos().insert(
         part="snippet,status",
         body={
             "snippet": {
-                "title": f"🔥 {title[:60]} #shorts",
-                "description": """Daily Bhagavad Gita wisdom 🙏
-                #shorts #bhagavadgita #krishna #motivation #life #india
+                "title": title,
+                "description": f"""
+Daily Bhagavad Gita wisdom 🙏
+
+{' '.join(hashtags)}
                 """,
-                "tags": ["bhagavad gita", "krishna", "dharma"],
+                "tags": hashtags,
                 "categoryId": "22"
             },
-            "status": {
-                "privacyStatus": "public"
-            }
+            "status": {"privacyStatus": "public"}
         },
         media_body=MediaFileUpload(file_path)
     )
 
     response = request.execute()
-
     logger.info(f"Upload complete: {response.get('id')}")
-
     return response

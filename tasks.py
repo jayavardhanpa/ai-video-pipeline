@@ -91,14 +91,17 @@ def build_video(item, upload=True):
             logger.error("No script data")
             return
 
-        videos = []
+        videos = []  # list of tuples (video_path, lang)
 
         for lang, code in {
             "english": "en",
             "telugu": "te",
             "hindi": "hi",
         }.items():
-            text = scripts.get(lang)
+            hook = scripts.get("hook", "")
+            main_text = scripts.get(lang, "")
+
+            text = f"{hook}\n\n{main_text}" if hook else main_text
             if not text:
                 continue
 
@@ -165,21 +168,33 @@ def build_video(item, upload=True):
             subprocess.run(cmd, check=True)
 
             logger.info(f"✅ Video created: {video_path}")
-            videos.append(str(video_path))
+            videos.append((str(video_path), lang))
 
         logger.info(f"✅ Completed video {video_id}")
 
+        upload_success = True
+
         if videos and upload:
-            for i, video_path in enumerate(videos):
-                lang = ["english", "telugu", "hindi"][i]  # Assuming order matches
+            for video_path, lang in videos:
                 try:
-                    script_text = scripts.get(lang, "")[:45]
-                    title = f"🔥 {script_text} #shorts"
-                    upload_video(video_path, title)
+                    # Defensive check (optional but useful)
+                    title_key = f"title_{'en' if lang=='english' else 'te' if lang=='telugu' else 'hi'}"
+                    if not scripts.get(title_key):
+                        logger.warning(f"⚠️ Missing title for {lang}")
+
+                    upload_video(video_path, scripts, lang)
                     logger.info(f"✅ Uploaded {lang} video")
+
                 except Exception as e:
-                    logger.error(f"Upload failed for {lang}: {e}")
-            update_status(video_id, "completed")
+                    logger.error(f"❌ Upload failed for {lang}: {e}")
+                    upload_success = False
+
+            # ✅ Correct status handling
+            if upload_success:
+                update_status(video_id, "completed")
+            else:
+                update_status(video_id, "partial")
+
         else:
             update_status(video_id, "completed")
 

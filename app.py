@@ -51,7 +51,7 @@ def generate():
             logger.error("❌ Failed to generate script from OpenAI")
             return {"error": "Script generation failed - check OpenAI API key"}, 500
         
-        preview_script = script_data.get("english", "")
+        preview_script = f"{script_data.get('hook','')} {script_data.get('english','')}"
         logger.info(f"✅ Script generated: {preview_script[:50]}...")
 
         # Save in DB (optional)
