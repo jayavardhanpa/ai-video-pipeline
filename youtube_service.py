@@ -21,7 +21,7 @@ def get_youtube_service():
     return build("youtube", "v3", credentials=creds)
 
 
-def upload_video(file_path, data, lang):
+def upload_video(file_path, data, lang, variant):
     logger.info(f"Uploading video: {file_path}")
 
     youtube = get_youtube_service()
@@ -40,7 +40,7 @@ def upload_video(file_path, data, lang):
         part="snippet,status",
         body={
             "snippet": {
-                "title": title,
+                "title": f"{title} ({variant})",
                 "description": f"""
 Daily Bhagavad Gita wisdom 🙏
 

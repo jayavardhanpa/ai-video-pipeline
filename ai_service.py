@@ -24,7 +24,9 @@ RULES:
 OUTPUT STRICT JSON:
 
 {
-  "hook": "...",
+  "hook_1": "...",
+  "hook_2": "...",
+
   "english": "...",
   "telugu": "...",
   "hindi": "...",
@@ -57,7 +59,8 @@ OUTPUT STRICT JSON:
             data = json.loads(content)
 
             required_keys = [
-                "hook",
+                "hook_1",
+                "hook_2",
                 "english",
                 "telugu",
                 "hindi",
@@ -80,7 +83,9 @@ OUTPUT STRICT JSON:
     logger.error("❌ All retries failed. Using fallback.")
 
     return {
-        "hook": "Feeling lost in life?",
+        "hook_1": "Feeling lost in life?",
+        "hook_2": "Why do we suffer so much?",
+
         "english": "Do your duty without worrying about results.",
         "telugu": "నీ కర్తవ్యాన్ని చేయి, ఫలితంపై ఆలోచించకు.",
         "hindi": "कर्म करो, फल की चिंता मत करो।",
@@ -89,7 +94,7 @@ OUTPUT STRICT JSON:
         "title_te": "కృష్ణుని మాటలు మీ జీవితాన్ని మార్చుతాయి",
         "title_hi": "कृष्ण की सीख जो जीवन बदल दे",
 
-        "hashtags_en": ["#shorts", "#bhagavadgita", "#krishna", "#motivation"],
-        "hashtags_te": ["#shorts", "#bhagavadgita", "#telugu", "#motivation"],
-        "hashtags_hi": ["#shorts", "#bhagavadgita", "#hindi", "#motivation"]
+        "hashtags_en": ["#shorts", "#bhagavadgita"],
+        "hashtags_te": ["#shorts", "#bhagavadgita"],
+        "hashtags_hi": ["#shorts", "#bhagavadgita"]
     }

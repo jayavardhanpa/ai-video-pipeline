@@ -16,23 +16,19 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 ASSETS_DIR = Path("assets")
 BG_DIR = ASSETS_DIR / "backgrounds"
-FONT_DIR = ASSETS_DIR  # fonts are already in assets/
+FONT_DIR = ASSETS_DIR
 
-# Create a temporary fonts directory with a safe path (no special chars)
 TEMP_FONT_DIR = Path(tempfile.gettempdir()) / "ai_fonts"
 TEMP_FONT_DIR.mkdir(parents=True, exist_ok=True)
 
+
 def setup_fonts():
-    """Copy fonts to temp directory with safe path (no special chars)"""
     if not any(TEMP_FONT_DIR.glob("*.ttf")):
-        # Copy fonts
         for font_file in FONT_DIR.glob("*.ttf"):
             shutil.copy(font_file, TEMP_FONT_DIR / font_file.name)
         logger.info(f"✅ Fonts copied to {TEMP_FONT_DIR}")
 
-# ------------------------------
-# Helpers
-# ------------------------------
+
 def get_background():
     images = list(BG_DIR.glob("*.jpg"))
     return str(random.choice(images)) if images else None
@@ -47,18 +43,15 @@ def font_for_lang(lang: str) -> str:
 
 
 def escape_ass_text(text: str) -> str:
-    """Escape ASS control characters in subtitle text."""
     return text.replace("\\", "\\\\").replace("{", "\\{").replace("}", "\\}")
 
 
 def ffmpeg_filter_path(path: str) -> str:
-    """Escape a path for ffmpeg filter expressions on Windows."""
     safe_path = path.replace('\\', '/').replace("'", "\\'")
     return safe_path.replace(':', '\\:')
 
 
 def create_ass_subtitle(text: str, out_path: Path, font_name: str):
-    """Create ASS subtitle with proper centering and outline."""
     safe_text = escape_ass_text(text)
     ass = f"""[Script Info]
 ScriptType: v4.00+
@@ -77,13 +70,10 @@ Dialogue: 0,0:00:00.00,9:59:59.00,Default,,0,0,0,,{safe_text}
     out_path.write_text(ass, encoding="utf-8")
 
 
-# ------------------------------
-# Main
-# ------------------------------
 def build_video(item, upload=True):
     try:
-        setup_fonts()  # Ensure fonts are in temp directory with safe path
-        
+        setup_fonts()
+
         video_id = item.get("id")
         scripts = item.get("scripts")
 
@@ -91,110 +81,109 @@ def build_video(item, upload=True):
             logger.error("No script data")
             return
 
-        videos = []  # list of tuples (video_path, lang)
+        videos = []
 
         for lang, code in {
             "english": "en",
             "telugu": "te",
             "hindi": "hi",
         }.items():
-            hook = scripts.get("hook", "")
+
+            hooks = [scripts.get("hook_1"), scripts.get("hook_2")]
             main_text = scripts.get(lang, "")
 
-            text = f"{hook}\n\n{main_text}" if hook else main_text
-            if not text:
-                continue
+            for idx, hook in enumerate(hooks):
+                if not hook or not main_text:
+                    continue
 
-            logger.info(f"🎬 Generating {lang}")
+                variant = f"v{idx+1}"
+                text = f"{hook}\n\n{main_text}"
 
-            vid_dir = OUTPUT_DIR / f"{video_id}_{lang}"
-            vid_dir.mkdir(parents=True, exist_ok=True)
+                logger.info(f"🎬 Generating {lang} - {variant}")
 
-            audio_path = vid_dir / "audio.mp3"
-            video_path = OUTPUT_DIR / f"{video_id}_{lang}.mp4"
-            ass_path = vid_dir / "sub.ass"
+                vid_dir = OUTPUT_DIR / f"{video_id}_{lang}_{variant}"
+                vid_dir.mkdir(parents=True, exist_ok=True)
 
-            # 🔊 AUDIO
-            try:
-                if lang == "english":
-                    engine = pyttsx3.init()
-                    engine.save_to_file(text, str(audio_path))
-                    engine.runAndWait()
-                else:
-                    gTTS(text=text, lang=code).save(str(audio_path))
-                duration = get_audio_duration(str(audio_path))
-                logger.info(f"✅ Audio generated for {lang}: {audio_path}, duration: {duration}s")
-            except Exception as e:
-                logger.error(f"❌ Failed to generate audio for {lang}: {e}")
-                continue  # Skip this language
+                audio_path = vid_dir / "audio.mp3"
+                video_path = OUTPUT_DIR / f"{video_id}_{lang}_{variant}.mp4"
+                ass_path = vid_dir / "sub.ass"
 
-            # 📝 ASS SUBTITLE
-            create_ass_subtitle(text, ass_path, font_for_lang(lang))
+                # 🔊 AUDIO
+                try:
+                    if lang == "english":
+                        engine = pyttsx3.init()
+                        engine.save_to_file(text, str(audio_path))
+                        engine.runAndWait()
+                    else:
+                        gTTS(text=text, lang=code).save(str(audio_path))
 
-            # 🖼 BACKGROUND
-            bg = get_background()
-            if not bg:
-                logger.error("No background images found")
-                return
+                    duration = get_audio_duration(str(audio_path))
+                    logger.info(f"✅ Audio generated for {lang}-{variant}: {duration}s")
 
-            # Prepare paths
-            ffmpeg_exe = "ffmpeg"
-            bg_abs = str(Path(bg).absolute()).replace('\\', '/')
-            ass_abs = ffmpeg_filter_path(str(ass_path.absolute()))
-            audio_abs = str(audio_path.absolute()).replace('\\', '/')
-            video_abs = str(video_path.absolute()).replace('\\', '/')
-            fonts_dir = ffmpeg_filter_path(str(TEMP_FONT_DIR.absolute()))
+                except Exception as e:
+                    logger.error(f"❌ Failed to generate audio for {lang}-{variant}: {e}")
+                    continue
 
-            filter_str = f"scale=720:1280,subtitles='{ass_abs}':fontsdir='{fonts_dir}'"
+                # 📝 SUBTITLE
+                create_ass_subtitle(text, ass_path, font_for_lang(lang))
 
-            cmd = [
-                ffmpeg_exe,
-                "-y",
-                "-loop", "1",
-                "-i", bg_abs,
-                "-i", audio_abs,
-                "-vf", filter_str,
-                "-af", "volume=2.0",
-                "-c:v", "libx264",
-                "-preset", "medium",
-                "-tune", "stillimage",
-                "-c:a", "aac",
-                "-shortest",
-                "-pix_fmt", "yuv420p",
-                video_abs
-            ]
+                # 🖼 BACKGROUND
+                bg = get_background()
+                if not bg:
+                    logger.error("No background images found")
+                    return
 
-            logger.info(f"📹 FFmpeg command: {' '.join(cmd)}")
-            subprocess.run(cmd, check=True)
+                ffmpeg_exe = "ffmpeg"
+                bg_abs = str(Path(bg).absolute()).replace('\\', '/')
+                ass_abs = ffmpeg_filter_path(str(ass_path.absolute()))
+                audio_abs = str(audio_path.absolute()).replace('\\', '/')
+                video_abs = str(video_path.absolute()).replace('\\', '/')
+                fonts_dir = ffmpeg_filter_path(str(TEMP_FONT_DIR.absolute()))
 
-            logger.info(f"✅ Video created: {video_path}")
-            videos.append((str(video_path), lang))
+                filter_str = f"scale=720:1280,subtitles='{ass_abs}':fontsdir='{fonts_dir}'"
+
+                cmd = [
+                    ffmpeg_exe,
+                    "-y",
+                    "-loop", "1",
+                    "-i", bg_abs,
+                    "-i", audio_abs,
+                    "-vf", filter_str,
+                    "-af", "volume=2.0",
+                    "-c:v", "libx264",
+                    "-preset", "medium",
+                    "-tune", "stillimage",
+                    "-c:a", "aac",
+                    "-shortest",
+                    "-pix_fmt", "yuv420p",
+                    video_abs
+                ]
+
+                logger.info(f"📹 FFmpeg command: {' '.join(cmd)}")
+                subprocess.run(cmd, check=True)
+
+                logger.info(f"✅ Video created: {video_path}")
+                videos.append((str(video_path), lang, variant))
 
         logger.info(f"✅ Completed video {video_id}")
 
         upload_success = True
 
         if videos and upload:
-            for video_path, lang in videos:
+            for video_path, lang, variant in videos:
                 try:
-                    # Defensive check (optional but useful)
                     title_key = f"title_{'en' if lang=='english' else 'te' if lang=='telugu' else 'hi'}"
                     if not scripts.get(title_key):
                         logger.warning(f"⚠️ Missing title for {lang}")
 
-                    upload_video(video_path, scripts, lang)
-                    logger.info(f"✅ Uploaded {lang} video")
+                    upload_video(video_path, scripts, lang, variant)
+                    logger.info(f"✅ Uploaded {lang}-{variant}")
 
                 except Exception as e:
-                    logger.error(f"❌ Upload failed for {lang}: {e}")
+                    logger.error(f"❌ Upload failed for {lang}-{variant}: {e}")
                     upload_success = False
 
-            # ✅ Correct status handling
-            if upload_success:
-                update_status(video_id, "completed")
-            else:
-                update_status(video_id, "partial")
-
+            update_status(video_id, "completed" if upload_success else "partial")
         else:
             update_status(video_id, "completed")
 
@@ -210,11 +199,9 @@ def build_video(item, upload=True):
 
 
 def get_audio_duration(audio_path: str) -> float:
-    """Get duration of audio file in seconds"""
     try:
-        ffmpeg_exe = "ffmpeg"
         result = subprocess.run(
-            [ffmpeg_exe, '-i', audio_path],
+            ["ffmpeg", "-i", audio_path],
             capture_output=True,
             text=True,
             check=False
@@ -229,4 +216,4 @@ def get_audio_duration(audio_path: str) -> float:
         return 5.0
     except Exception as e:
         logger.warning(f"Failed to read audio duration: {e}")
-        return 5.0  # Default 5 seconds
+        return 5.0
