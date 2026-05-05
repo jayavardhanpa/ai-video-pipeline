@@ -27,8 +27,9 @@ Return STRICT JSON ONLY:
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=300,
-                temperature=0.7
+                max_tokens=500,
+                temperature=0.7,
+                response_format={"type": "json_object"}
             )
 
             content = response.choices[0].message.content.strip()
