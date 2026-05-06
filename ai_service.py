@@ -49,7 +49,7 @@ OUTPUT STRICT JSON:
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
-                max_tokens=180,
+                max_tokens=500,
                 temperature=0.9
             )
 
