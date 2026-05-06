@@ -1,6 +1,6 @@
 flask
-# rq
-# redis
+rq
+redis
 requests
 flask-limiter
 APScheduler
