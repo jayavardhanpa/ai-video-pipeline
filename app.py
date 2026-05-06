@@ -4,9 +4,7 @@ import os
 from flask import Flask
 from db import init_db, insert_video, update_status
 from telegram_bot import send_approval
-from utils import require_api_key, logger   
-from redis import Redis
-from rq import Queue
+from utils import require_api_key, logger
 from tasks import build_video
 from ai_service import generate_script
 from flask_limiter import Limiter
@@ -23,12 +21,7 @@ limiter = Limiter(
 # ✅ Init DB
 init_db()
 
-# ✅ Redis Queue
-redis_url = os.getenv("REDIS_URL")
-redis_conn = Redis.from_url(redis_url)
-q = Queue(connection=redis_conn)
-
-# 🔥 In-memory store (IMPORTANT)
+# 🔥 In-memory store
 video_store = {}
 
 
@@ -43,32 +36,38 @@ def home():
 @require_api_key
 def generate():
     logger.info("🚀 Scheduler triggered generate API")
+
     try:
         logger.info("📝 Calling generate_script() from OpenAI...")
         script_data = generate_script()
-        
+
         if not script_data:
-            logger.error("❌ Failed to generate script from OpenAI")
-            return {"error": "Script generation failed - check OpenAI API key"}, 500
-        
-        preview_script = f"{script_data.get('hook_1','')} {script_data.get('english','')}"
+            logger.error("❌ Failed to generate script")
+            return {"error": "Script generation failed"}, 500
+
+        preview_script = f"{script_data.get('hook_1', '')} {script_data.get('english', '')}"
+
         logger.info(f"✅ Script generated: {preview_script[:50]}...")
 
-        # Save in DB (optional)
+        # Save in DB
         vid = insert_video(str(script_data))
 
-        # ✅ SAVE IN MEMORY (CRITICAL)
+        # Save in memory
         video_store[vid] = script_data
 
-        # Send Telegram
-        q.enqueue(send_approval, vid, preview_script)
+        # ✅ DIRECT TELEGRAM CALL (NO REDIS)
+        send_approval(vid, preview_script)
 
-        logger.info(f"Enqueued Telegram approval for video {vid}")
+        logger.info(f"✅ Telegram approval sent for video {vid}")
 
-        return {"status": "ok", "id": vid, "preview": preview_script}
+        return {
+            "status": "ok",
+            "id": vid,
+            "preview": preview_script
+        }
 
     except Exception as e:
-        logger.error(f"Error in /api/generate: {e}")
+        logger.error(f"❌ Error in /api/generate: {e}")
         return {"error": str(e)}, 500
 
 
@@ -80,21 +79,30 @@ def approve(vid):
 
     update_status(vid, "approved")
 
-    # 🔥 GET DATA FROM MEMORY
     script_data = video_store.get(vid)
 
     if not script_data:
-        logger.error(f"No script data found for video {vid}")
+        logger.error(f"❌ No script data found for video {vid}")
         return {"error": "Data not found (app restarted?)"}, 500
 
     payload = {
         "id": vid,
-        "scripts": video_store.get(vid)
+        "scripts": script_data
     }
 
-    q.enqueue(build_video, payload)
+    try:
+        # ✅ DIRECT VIDEO BUILD (NO REDIS)
+        build_video(payload)
 
-    return "Approved"
+        logger.info(f"✅ Video build completed for {vid}")
+
+        return {"status": "approved"}
+
+    except Exception as e:
+        logger.error(f"❌ Build failed: {e}")
+        update_status(vid, "error")
+
+        return {"error": str(e)}, 500
 
 
 # ❌ REJECT
@@ -102,8 +110,10 @@ def approve(vid):
 @limiter.limit("10 per minute")
 def reject(vid):
     logger.info(f"Video {vid} rejected.")
+
     update_status(vid, "rejected")
-    return "Rejected"
+
+    return {"status": "rejected"}
 
 
 # ❤️ HEALTH
@@ -113,31 +123,24 @@ def health():
     return {"status": "ok"}
 
 
-# 🔑 CHECK OPENAI API KEY
+# 🔑 CHECK OPENAI KEY
 @app.route("/check-openai-key")
 @limiter.limit("20 per minute")
 def check_openai_key():
-    """Check if OpenAI API key is configured"""
-    import os
     api_key = os.getenv("OPENAI_API_KEY")
-    
+
     if not api_key:
         logger.error("❌ OPENAI_API_KEY not configured")
+
         return {
             "status": "error",
-            "message": "OPENAI_API_KEY environment variable is not set",
             "configured": False
         }, 500
-    
-    key_preview = f"{api_key[:8]}...{api_key[-4:]}" if len(api_key) > 12 else "***"
-    logger.info(f"✅ OPENAI_API_KEY is configured: {key_preview}")
-    
+
     return {
         "status": "ok",
-        "message": "OpenAI API key is configured",
         "configured": True,
-        "key_length": len(api_key),
-        "key_preview": key_preview
+        "key_length": len(api_key)
     }
 
 
