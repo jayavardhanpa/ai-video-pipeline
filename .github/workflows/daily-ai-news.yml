@@ -2,7 +2,7 @@ name: Daily AI News Pipeline
 
 on:
   schedule:
-    - cron: "0 3 * * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -32,3 +32,16 @@ jobs:
 
           echo "❌ Failed"
           exit 1
+        
+      - name: Health Check
+        run: |
+            echo "Checking API health..."
+
+            response=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X GET "${{ secrets.APP_URL }}/health")
+
+            echo "Health Response: $response"
+
+            if [ "$response" -ne 200 ]; then
+              echo "❌ Health check failed!"
+              exit 1

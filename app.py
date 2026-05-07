@@ -8,6 +8,8 @@ from tasks import build_video
 from ai_service import generate_script
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from analytics_service import update_video_stats
+from db import get_top_variants
 
 app = Flask(__name__)
 
@@ -91,6 +93,23 @@ def reject(vid):
 def health():
     return {"status": "ok"}
 
+# ANALYTICS UPDATE
+@app.route("/analytics/update")
+def analytics_update():
+
+    update_video_stats()
+
+    return {"status": "updated"}
+
+#Leader Board
+@app.route("/analytics/top")
+def analytics_top():
+
+    rows = get_top_variants()
+
+    return {
+        "top_variants": rows
+    }
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))

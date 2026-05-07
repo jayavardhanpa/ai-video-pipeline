@@ -10,6 +10,7 @@ import tempfile
 import os
 import shutil
 import re
+from db import save_video_analytics
 
 OUTPUT_DIR = Path(tempfile.gettempdir()) / "ai_videos"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -185,7 +186,22 @@ def build_video(item, upload=True):
                     if not scripts.get(title_key):
                         logger.warning(f"⚠️ Missing title for {lang}")
 
-                    upload_video(video_path, scripts, lang, variant, channel)
+                    upload_result = upload_video(
+                        video_path,
+                        scripts,
+                        lang,
+                        variant,
+                        channel
+                    )
+                    
+                    save_video_analytics(
+                        video_id=video_id,
+                        channel=channel,
+                        language=lang,
+                        variant=variant,
+                        youtube_video_id=upload_result["youtube_video_id"]
+                    )
+                    
                     logger.info(f"✅ Uploaded {lang}-{variant}")
 
                 except Exception as e:
