@@ -1,0 +1,34 @@
+name: Daily AI News Pipeline
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger-ai-news:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger AI News API
+        run: |
+          echo "🚀 Triggering AI News Pipeline..."
+
+          for i in {1..3}
+          do
+            response=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST "${{ secrets.APP_URL }}/api/generate?channel=ai_news" \
+              -H "Authorization: Bearer ${{ secrets.API_KEY }}")
+
+            echo "Response: $response"
+
+            if [ "$response" -eq 200 ]; then
+              echo "✅ Success"
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "❌ Failed"
+          exit 1

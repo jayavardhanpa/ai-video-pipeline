@@ -83,11 +83,20 @@ def build_video(item, upload=True):
 
         videos = []
 
-        for lang, code in {
-            "english": "en",
-            "telugu": "te",
-            "hindi": "hi",
-        }.items():
+        channel = item.get("channel", "gita")
+
+        if channel == "ai_news":
+            languages = {
+                "english": "en"
+            }
+        else:
+            languages = {
+                "english": "en",
+                "telugu": "te",
+                "hindi": "hi"
+            }
+
+        for lang, code in languages.items():
 
             hooks = [scripts.get("hook_1"), scripts.get("hook_2")]
             main_text = scripts.get(lang, "")
@@ -176,7 +185,7 @@ def build_video(item, upload=True):
                     if not scripts.get(title_key):
                         logger.warning(f"⚠️ Missing title for {lang}")
 
-                    upload_video(video_path, scripts, lang, variant)
+                    upload_video(video_path, scripts, lang, variant, channel)
                     logger.info(f"✅ Uploaded {lang}-{variant}")
 
                 except Exception as e:

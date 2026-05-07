@@ -7,19 +7,24 @@ from utils import logger
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-def generate_script(retries=3):
-    prompt = """
+def generate_script(channel="gita", retries=3):
+
+    # =========================
+    # GITA CHANNEL
+    # =========================
+    if channel == "gita":
+
+        prompt = """
 You are a viral YouTube Shorts content creator.
 
 Create a HIGHLY ENGAGING short script inspired by Bhagavad Gita.
 
 RULES:
-- Hook in first line (emotion, curiosity, or shock)
+- Hook in first line
 - Max 2–3 lines total
-- Simple, powerful words
-- Relatable to daily life (stress, failure, success, karma)
-- Make it emotional and slightly dramatic
-- Avoid complex Sanskrit explanations
+- Emotional and relatable
+- Simple words
+- Avoid complex Sanskrit
 
 OUTPUT STRICT JSON:
 
@@ -35,15 +40,61 @@ OUTPUT STRICT JSON:
   "title_te": "...",
   "title_hi": "...",
 
-  "hashtags_en": ["#shorts", "..."],
-  "hashtags_te": ["#shorts", "..."],
-  "hashtags_hi": ["#shorts", "..."]
+  "hashtags_en": ["#shorts"],
+  "hashtags_te": ["#shorts"],
+  "hashtags_hi": ["#shorts"]
 }
 """
 
+    # =========================
+    # AI NEWS CHANNEL
+    # =========================
+    elif channel == "ai_news":
+
+        prompt = """
+You are a viral AI YouTube Shorts creator.
+
+Create a HIGHLY ENGAGING AI short video.
+
+TOPICS:
+- ChatGPT tips
+- AI tools
+- AI coding hacks
+- Claude/Gemini updates
+- AI news
+- AI productivity
+
+RULES:
+- Hook in first line
+- Max 2–3 lines
+- Curiosity-driven
+- Exciting
+- Beginner friendly
+
+OUTPUT STRICT JSON:
+
+{
+  "hook_1": "...",
+  "hook_2": "...",
+
+  "english": "...",
+
+  "title_en": "...",
+
+  "hashtags_en": ["#AI", "#ChatGPT"]
+}
+"""
+
+    else:
+        raise ValueError(f"Unsupported channel: {channel}")
+
+    # =========================
+    # API CALL
+    # =========================
+
     for attempt in range(retries):
         try:
-            logger.info("🤖 Generating viral script...")
+            logger.info(f"🤖 Generating script for channel: {channel}")
 
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -58,29 +109,28 @@ OUTPUT STRICT JSON:
 
             data = json.loads(content)
 
-            required_keys = [
-                "hook_1",
-                "hook_2",
-                "english",
-                "telugu",
-                "hindi",
-                "title_en",
-                "title_te",
-                "title_hi",
-                "hashtags_en",
-                "hashtags_te",
-                "hashtags_hi"
-            ]
-            if not all(k in data for k in required_keys):
-                raise ValueError("Invalid JSON format")
-
             return data
 
         except Exception as e:
             logger.error(f"❌ Attempt {attempt+1} failed: {e}")
             time.sleep(2 ** attempt)
 
-    logger.error("❌ All retries failed. Using fallback.")
+    logger.error("❌ All retries failed")
+
+    # =========================
+    # FALLBACKS
+    # =========================
+
+    if channel == "ai_news":
+        return {
+            "hook_1": "AI is changing everything.",
+            "hook_2": "Most people are using ChatGPT wrong.",
+
+            "english": "Use AI to save hours every single day.",
+
+            "title_en": "AI Trick You Should Start Using",
+            "hashtags_en": ["#AI", "#ChatGPT", "#AITools"]
+        }
 
     return {
         "hook_1": "Feeling lost in life?",
