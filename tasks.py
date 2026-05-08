@@ -30,8 +30,14 @@ def setup_fonts():
         logger.info(f"✅ Fonts copied to {TEMP_FONT_DIR}")
 
 
-def get_background():
-    images = list(BG_DIR.glob("*.jpg"))
+def get_background(channel="gita"):
+    bg_dir = BG_DIR / channel
+
+    images = (
+        list(bg_dir.glob("*.jpg")) +
+        list(bg_dir.glob("*.png")) +
+        list(bg_dir.glob("*.jpeg"))
+    )
     return str(random.choice(images)) if images else None
 
 
@@ -148,7 +154,7 @@ def build_video(item, upload=True):
                 create_ass_subtitle(text, ass_path, font_for_lang(lang))
 
                 # 🖼 BACKGROUND
-                bg = get_background()
+                bg = get_background(channel)
                 if not bg:
                     logger.error("No background images found")
                     return
