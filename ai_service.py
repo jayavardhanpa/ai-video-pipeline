@@ -172,10 +172,7 @@ def generate_script(
 
         rag_context = load_rag(channel)
 
-        prompt = prompt_template.format(
-            hook_style=hook_style_text,
-            rag_context=rag_context
-        )
+        prompt = prompt_template.replace("{hook_style}", hook_style_text).replace("{rag_context}", rag_context)
 
     except Exception as e:
 
