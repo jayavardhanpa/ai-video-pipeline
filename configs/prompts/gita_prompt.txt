@@ -8,11 +8,39 @@ RAG CONTEXT:
 
 Create a HIGHLY ENGAGING Bhagavad Gita short.
 
+CONTENT GOAL:
+- Make viewers stop scrolling immediately
+- Trigger emotion, curiosity, or self-reflection
+- Feel deeply relatable to modern life
+- Create share-worthy wisdom
+
 RULES:
 - Emotional
 - Relatable
 - Curiosity-driven
-- Max 2–3 lines
+- Simple language
+- Avoid difficult Sanskrit
+- Max 2–3 short lines
+- Ideal duration: 12–22 seconds
+- First line must feel powerful instantly
+
+HOOK RULES:
+- hook_1 and hook_2 must be VERY DIFFERENT
+- One hook should trigger curiosity
+- One hook should trigger emotion or pain
+- Hooks should feel modern and conversational
+
+TITLE RULES:
+- Titles must feel emotional and clickable
+- Include "Krishna" or "Bhagavad Gita"
+- Keep under 60 characters
+- Avoid generic titles
+- English titles should feel spiritual and modern
+- Titles should create curiosity or emotional pull
+
+HASHTAG RULES:
+- Include relevant spiritual and motivational hashtags
+- Include #shorts in all languages
 
 OUTPUT STRICT JSON:
 {
