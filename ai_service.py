@@ -9,19 +9,135 @@ import json
 CONFIG_DIR = Path("configs")
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+_FALLBACK_PROMPTS = {
+    "ai_news": """You are a viral AI content creator.
+
+HOOK STYLE:
+{hook_style}
+
+TREND CONTEXT:
+{rag_context}
+
+Create a HIGHLY ENGAGING AI short.
+
+RULES:
+- Curiosity-driven
+- Exciting
+- Beginner-friendly
+- Max 2–3 lines
+
+OUTPUT STRICT JSON:
+{
+  "hook_1": "...",
+  "hook_2": "...",
+
+  "english": "...",
+
+  "title_en": "...",
+
+  "hashtags_en": ["#AI", "#ChatGPT"]
+}""",
+    "gita": """You are a viral YouTube Shorts creator.
+
+HOOK STYLE:
+{hook_style}
+
+RAG CONTEXT:
+{rag_context}
+
+Create a HIGHLY ENGAGING Bhagavad Gita short.
+
+CONTENT GOAL:
+- Make viewers stop scrolling immediately
+- Trigger emotion, curiosity, or self-reflection
+- Feel deeply relatable to modern life
+- Create share-worthy wisdom
+
+RULES:
+- Emotional
+- Relatable
+- Curiosity-driven
+- Simple language
+- Avoid difficult Sanskrit
+- Max 2–3 short lines
+- Ideal duration: 12–22 seconds
+- First line must feel powerful instantly
+
+HOOK RULES:
+- hook_1 and hook_2 must be VERY DIFFERENT
+- One hook should trigger curiosity
+- One hook should trigger emotion or pain
+- Hooks should feel modern and conversational
+
+TITLE RULES:
+- Titles must feel emotional and clickable
+- Include "Krishna" or "Bhagavad Gita"
+- Keep under 60 characters
+- Avoid generic titles
+- English titles should feel spiritual and modern
+- Titles should create curiosity or emotional pull
+
+HASHTAG RULES:
+- Include relevant spiritual and motivational hashtags
+- Include #shorts in all languages
+
+OUTPUT STRICT JSON:
+{
+  "hook_1": "...",
+  "hook_2": "...",
+
+  "english": "...",
+  "telugu": "...",
+  "hindi": "...",
+
+  "title_en": "...",
+  "title_te": "...",
+  "title_hi": "...",
+
+  "hashtags_en": ["#shorts"],
+  "hashtags_te": ["#shorts"],
+  "hashtags_hi": ["#shorts"]
+}""",
+}
+
+_FALLBACK_HOOKS = {
+    "curiosity": [
+        "Nobody talks about this",
+        "Most people don't realize this",
+        "This changes everything",
+        "You're doing this wrong",
+    ],
+    "emotional": [
+        "Feeling lost in life?",
+        "This destroys anxiety",
+        "Why do we suffer?",
+        "Krishna explained this",
+    ],
+}
+
+_FALLBACK_RAG = {
+    "ai_news": "OpenAI launched new coding improvements.\nClaude is improving agent workflows.\nAI coding assistants are replacing repetitive work.",
+    "gita": "You only control action, not results.\nPeace comes from detachment.\nOverthinking destroys clarity.\n",
+}
+
 def load_prompt(channel):
 
     prompt_file = CONFIG_DIR / "prompts" / f"{channel}_prompt.txt"
 
-    return prompt_file.read_text(encoding="utf-8")
+    try:
+        return prompt_file.read_text(encoding="utf-8")
+    except Exception:
+        return _FALLBACK_PROMPTS[channel]
 
 def load_hook_style(style):
 
     hook_file = CONFIG_DIR / "hooks" / f"{style}.json"
 
-    data = json.loads(hook_file.read_text())
-
-    return "\n".join(data["style"])
+    try:
+        data = json.loads(hook_file.read_text())
+        return "\n".join(data["style"])
+    except Exception:
+        return "\n".join(_FALLBACK_HOOKS[style])
 
 def load_rag(channel):
 
@@ -32,7 +148,10 @@ def load_rag(channel):
 
     rag_file = CONFIG_DIR / "rag" / rag_map[channel]
 
-    return rag_file.read_text(encoding="utf-8")
+    try:
+        return rag_file.read_text(encoding="utf-8")
+    except Exception:
+        return _FALLBACK_RAG[channel]
 
 
 def generate_script(
