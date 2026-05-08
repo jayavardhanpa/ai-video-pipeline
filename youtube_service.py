@@ -12,12 +12,48 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 def load_credentials(channel="gita"):
 
     if channel == "ai_news":
-        token_b64 = os.getenv("YOUTUBE_AI_TOKEN_B64")
+        token_payload = os.getenv("YOUTUBE_AI_TOKEN_B64")
     else:
-        token_b64 = os.getenv("YOUTUBE_TOKEN_B64")
+        token_payload = os.getenv("YOUTUBE_TOKEN_B64")
 
-    token_json = base64.b64decode(token_b64).decode("utf-8")
-    creds_data = json.loads(token_json)
+    if not token_payload:
+        raise RuntimeError(
+            f"Missing YouTube token environment variable for channel '{channel}'. "
+            "Set YOUTUBE_AI_TOKEN_B64 or YOUTUBE_TOKEN_B64 with the base64-encoded token JSON."
+        )
+
+    creds_data = None
+    try:
+        decoded = base64.b64decode(token_payload).decode("utf-8")
+        creds_data = json.loads(decoded)
+    except Exception:
+        try:
+            creds_data = json.loads(token_payload)
+        except Exception as exc:
+            logger.error(
+                "Unable to parse YouTube token payload. "
+                "Ensure the env var is either base64-encoded JSON or raw JSON."
+            )
+            raise RuntimeError("Invalid YOUTUBE token payload") from exc
+
+    if not isinstance(creds_data, dict):
+        raise RuntimeError("YouTube credentials must be a JSON object")
+
+    missing_keys = [
+        key for key in ("refresh_token", "client_id", "client_secret", "token_uri")
+        if key not in creds_data
+    ]
+
+    if missing_keys:
+        logger.error(
+            "YouTube token payload is missing required fields: %s. "
+            "Payload keys: %s",
+            missing_keys,
+            list(creds_data.keys())
+        )
+        raise RuntimeError(
+            "Invalid YouTube credentials: missing required refresh_token/client_id/client_secret/token_uri"
+        )
 
     return Credentials.from_authorized_user_info(creds_data, SCOPES)
 
