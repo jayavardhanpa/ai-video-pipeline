@@ -38,7 +38,15 @@ def generate():
 
         logger.info(f"🚀 Generate triggered for channel: {channel}")
 
-        script_data = generate_script(channel=channel)
+        hook_style = request.args.get(
+            "hook_style",
+            "curiosity"
+        )
+
+        script_data = generate_script(
+            channel=channel,
+            hook_style=hook_style
+        )
 
         preview_script = f"{script_data.get('hook_1', '')} {script_data.get('english', '')}"
 

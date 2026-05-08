@@ -3,90 +3,66 @@ import os
 import json
 import time
 from utils import logger
+from pathlib import Path
+import json
 
+CONFIG_DIR = Path("configs")
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+def load_prompt(channel):
 
-def generate_script(channel="gita", retries=3):
+    prompt_file = CONFIG_DIR / "prompts" / f"{channel}_prompt.txt"
 
+    return prompt_file.read_text(encoding="utf-8")
+
+def load_hook_style(style):
+
+    hook_file = CONFIG_DIR / "hooks" / f"{style}.json"
+
+    data = json.loads(hook_file.read_text())
+
+    return "\n".join(data["style"])
+
+def load_rag(channel):
+
+    rag_map = {
+        "gita": "gita_quotes.txt",
+        "ai_news": "ai_trends.txt"
+    }
+
+    rag_file = CONFIG_DIR / "rag" / rag_map[channel]
+
+    return rag_file.read_text(encoding="utf-8")
+
+
+def generate_script(
+    channel="gita",
+    hook_style="curiosity",
+    retries=3
+):    
+
+   # =========================
+    # DYNAMIC PROMPT BUILDING
     # =========================
-    # GITA CHANNEL
-    # =========================
-    if channel == "gita":
 
-        prompt = """
-You are a viral YouTube Shorts content creator.
+    try:
 
-Create a HIGHLY ENGAGING short script inspired by Bhagavad Gita.
+        prompt_template = load_prompt(channel)
 
-RULES:
-- Hook in first line
-- Max 2–3 lines total
-- Emotional and relatable
-- Simple words
-- Avoid complex Sanskrit
+        hook_style_text = load_hook_style(hook_style)
 
-OUTPUT STRICT JSON:
+        rag_context = load_rag(channel)
 
-{
-  "hook_1": "...",
-  "hook_2": "...",
+        prompt = prompt_template.format(
+            hook_style=hook_style_text,
+            rag_context=rag_context
+        )
 
-  "english": "...",
-  "telugu": "...",
-  "hindi": "...",
+    except Exception as e:
 
-  "title_en": "...",
-  "title_te": "...",
-  "title_hi": "...",
+        logger.error(f"❌ Failed loading configs: {e}")
 
-  "hashtags_en": ["#shorts"],
-  "hashtags_te": ["#shorts"],
-  "hashtags_hi": ["#shorts"]
-}
-"""
-
-    # =========================
-    # AI NEWS CHANNEL
-    # =========================
-    elif channel == "ai_news":
-
-        prompt = """
-You are a viral AI YouTube Shorts creator.
-
-Create a HIGHLY ENGAGING AI short video.
-
-TOPICS:
-- ChatGPT tips
-- AI tools
-- AI coding hacks
-- Claude/Gemini updates
-- AI news
-- AI productivity
-
-RULES:
-- Hook in first line
-- Max 2–3 lines
-- Curiosity-driven
-- Exciting
-- Beginner friendly
-
-OUTPUT STRICT JSON:
-
-{
-  "hook_1": "...",
-  "hook_2": "...",
-
-  "english": "...",
-
-  "title_en": "...",
-
-  "hashtags_en": ["#AI", "#ChatGPT"]
-}
-"""
-
-    else:
-        raise ValueError(f"Unsupported channel: {channel}")
+        raise
 
     # =========================
     # API CALL
