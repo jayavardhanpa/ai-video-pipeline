@@ -11,6 +11,7 @@ import os
 import shutil
 import re
 from db import save_video_analytics
+from tts_service import generate_tts
 
 OUTPUT_DIR = Path(tempfile.gettempdir()) / "ai_videos"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -38,7 +39,13 @@ def get_background(channel="gita"):
         list(bg_dir.glob("*.png")) +
         list(bg_dir.glob("*.jpeg"))
     )
-    return str(random.choice(images)) if images else None
+
+    if not images:
+        raise Exception(
+            f"No background images found for {channel}"
+        )
+
+    return str(random.choice(images))
 
 
 def font_for_lang(lang: str) -> str:
@@ -77,19 +84,58 @@ Dialogue: 0,0:00:00.00,9:59:59.00,Default,,0,0,0,,{safe_text}
     out_path.write_text(ass, encoding="utf-8")
 
 
-def generate_audio(text: str, audio_path: Path, lang: str, code: str):
-    if lang == "english":
-        try:
-            engine = pyttsx3.init()
-            engine.save_to_file(text, str(audio_path))
-            engine.runAndWait()
-            return
-        except Exception as e:
-            logger.warning(
-                f"⚠️ pyttsx3 failed for english TTS, falling back to gTTS: {e}"
-            )
+from openai import OpenAI
+import os
 
-    gTTS(text=text, lang=code).save(str(audio_path))
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
+
+
+def generate_audio(
+    text: str,
+    audio_path: Path,
+    lang: str,
+    code: str,
+    channel: str = "gita"
+):
+
+    try:
+
+        # =========================
+        # CHANNEL-BASED VOICES
+        # =========================
+
+        voice_map = {
+            "gita": "onyx",
+            "ai_news": "alloy"
+        }
+
+        voice = voice_map.get(channel, "alloy")
+
+        logger.info(
+            f"🎤 Generating OpenAI TTS | "
+            f"channel={channel} | "
+            f"voice={voice}"
+        )
+
+        with client.audio.speech.with_streaming_response.create(
+            model="gpt-4o-mini-tts",
+            voice=voice,
+            input=text
+        ) as response:
+
+            response.stream_to_file(audio_path)
+
+        logger.info(f"✅ Audio generated: {audio_path}")
+
+    except Exception as e:
+
+        logger.error(
+            f"❌ OpenAI TTS failed, falling back to gTTS: {e}"
+        )
+
+        gTTS(text=text, lang=code).save(str(audio_path))
 
 
 def build_video(item, upload=True):
@@ -141,7 +187,7 @@ def build_video(item, upload=True):
 
                 # 🔊 AUDIO
                 try:
-                    generate_audio(text, audio_path, lang, code)
+                    generate_audio(text,audio_path,lang,code,channel)
 
                     duration = get_audio_duration(str(audio_path))
                     logger.info(f"✅ Audio generated for {lang}-{variant}: {duration}s")
@@ -166,7 +212,26 @@ def build_video(item, upload=True):
                 video_abs = str(video_path.absolute()).replace('\\', '/')
                 fonts_dir = ffmpeg_filter_path(str(TEMP_FONT_DIR.absolute()))
 
-                filter_str = f"scale=720:1280,subtitles='{ass_abs}':fontsdir='{fonts_dir}'"
+                safe_hook = hook.upper().replace(":", "").replace("'", "")
+
+                filter_str = (
+                    f"scale=720:1280,"
+                    
+                    # 🔥 Animated Hook Text
+                    f"drawtext="
+                    f"text='{safe_hook}':"
+                    f"fontcolor=white:"
+                    f"fontsize=64:"
+                    f"box=1:"
+                    f"boxcolor=black@0.6:"
+                    f"boxborderw=25:"
+                    f"x=(w-text_w)/2:"
+                    f"y=120:"
+                    f"enable='between(t,0,3)',"
+
+                    # 🔥 Main subtitles
+                    f"subtitles='{ass_abs}':fontsdir='{fonts_dir}'"
+                )
 
                 cmd = [
                     ffmpeg_exe,
