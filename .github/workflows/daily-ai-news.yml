@@ -5,6 +5,10 @@ on:
     - cron: "0 6 * * *"
   workflow_dispatch:
 
+env:
+  CHANNEL: ai_news
+  HOOK_STYLE: curiosity
+  
 jobs:
   trigger-ai-news:
     runs-on: ubuntu-latest
