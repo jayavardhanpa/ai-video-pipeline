@@ -71,6 +71,21 @@ Dialogue: 0,0:00:00.00,9:59:59.00,Default,,0,0,0,,{safe_text}
     out_path.write_text(ass, encoding="utf-8")
 
 
+def generate_audio(text: str, audio_path: Path, lang: str, code: str):
+    if lang == "english":
+        try:
+            engine = pyttsx3.init()
+            engine.save_to_file(text, str(audio_path))
+            engine.runAndWait()
+            return
+        except Exception as e:
+            logger.warning(
+                f"⚠️ pyttsx3 failed for english TTS, falling back to gTTS: {e}"
+            )
+
+    gTTS(text=text, lang=code).save(str(audio_path))
+
+
 def build_video(item, upload=True):
     try:
         setup_fonts()
@@ -120,12 +135,7 @@ def build_video(item, upload=True):
 
                 # 🔊 AUDIO
                 try:
-                    if lang == "english":
-                        engine = pyttsx3.init()
-                        engine.save_to_file(text, str(audio_path))
-                        engine.runAndWait()
-                    else:
-                        gTTS(text=text, lang=code).save(str(audio_path))
+                    generate_audio(text, audio_path, lang, code)
 
                     duration = get_audio_duration(str(audio_path))
                     logger.info(f"✅ Audio generated for {lang}-{variant}: {duration}s")
